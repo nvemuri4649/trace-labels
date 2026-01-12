@@ -903,6 +903,26 @@ def render_labeling_interface():
     # Check if this trajectory already has a label
     existing_label = labels_by_trajectory.get(current_trajectory.get("id"))
     
+    # Show prominent banner for already labeled trajectories
+    if existing_label:
+        label_name = existing_label.get("label", "Unknown")
+        label_idx = config.LABELS.index(label_name) + 1 if label_name in config.LABELS else 0
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(5, 150, 105, 0.25), rgba(16, 185, 129, 0.15)); 
+                    border: 2px solid #10b981; border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1rem;
+                    display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <span style="color: #34d399; font-size: 0.85rem; font-weight: 500;">ALREADY LABELED</span>
+                <div style="color: #f1f5f9; font-size: 1.25rem; font-weight: 700; margin-top: 0.25rem;">
+                    [{label_idx}] {label_name}
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <span style="color: #94a3b8; font-size: 0.8rem;">Press 1-7 or click a button to change label</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
     with col1:
         if st.button("⬅️ Previous", disabled=current_idx == 0):
             st.session_state.current_trajectory_idx -= 1
@@ -912,10 +932,10 @@ def render_labeling_interface():
         content_len = current_trajectory.get('content_length', 0)
         len_label = "Long" if content_len > 50000 else "Medium" if content_len > 10000 else "Short"
         
-        # Show labeled status
+        # Show labeled status badge
         status_badge = ""
         if existing_label:
-            status_badge = f'<span style="background: #059669; color: white; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.7rem; margin-left: 0.5rem;">✓ {existing_label.get("label", "labeled")}</span>'
+            status_badge = f'<span style="background: #059669; color: white; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.7rem; margin-left: 0.5rem;">✓ Labeled</span>'
         
         st.markdown(f"""
         <div style="text-align: center; color: #94a3b8;">
@@ -939,15 +959,6 @@ def render_labeling_interface():
     
     # Labeling form
     st.markdown("---")
-    
-    # Show existing label if present
-    if existing_label:
-        st.markdown(f"""
-        <div style="background: rgba(5, 150, 105, 0.15); border: 1px solid #059669; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem;">
-            <span style="color: #34d399; font-weight: 600;">Current label:</span>
-            <span style="color: #f1f5f9; margin-left: 0.5rem; font-weight: 600;">{existing_label.get('label', 'Unknown')}</span>
-        </div>
-        """, unsafe_allow_html=True)
     
     # Label descriptions reference
     with st.expander("Label Descriptions"):
@@ -1321,8 +1332,6 @@ def main():
     
     # ==================== SIDEBAR LABEL BUTTONS ====================
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### Quick Label")
-    st.sidebar.caption("Press 1-7 or click:")
     
     # Get current trajectory's existing label for highlighting
     store = st.session_state.data_store
@@ -1337,6 +1346,7 @@ def main():
         display_trajectories = [t for t in user_trajectories if t.get("id") not in labels_by_trajectory]
     
     current_label_name = None
+    current_label_idx = None
     if display_trajectories:
         current_idx = st.session_state.current_trajectory_idx
         if current_idx < len(display_trajectories):
@@ -1344,6 +1354,22 @@ def main():
             existing = labels_by_trajectory.get(current_trajectory.get("id"))
             if existing:
                 current_label_name = existing.get("label")
+                current_label_idx = config.LABELS.index(current_label_name) if current_label_name in config.LABELS else None
+    
+    # Show header with current label status
+    if current_label_name:
+        st.sidebar.markdown(f"""
+        <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; border-radius: 8px; 
+                    padding: 0.5rem; margin-bottom: 0.75rem; text-align: center;">
+            <span style="color: #6ee7b7; font-size: 0.75rem;">Current Label:</span>
+            <div style="color: #f1f5f9; font-weight: 700;">[{current_label_idx + 1 if current_label_idx is not None else '?'}] {current_label_name}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.sidebar.markdown("### 🔄 Change Label")
+    else:
+        st.sidebar.markdown("### 🏷️ Quick Label")
+    
+    st.sidebar.caption("Press 1-7 or click:")
     
     # Check if we need to show "just labeled" feedback and then advance
     if st.session_state.get("pending_advance", False):

@@ -71,6 +71,15 @@
       "id": "1dabca32-fedb-43af-a14f-201a2d7605a0_nikhil",
       "labeled_at": "2026-01-12T15:27:26.502029",
       "created_at": "2026-01-12T15:27:26.502029"
+    },
+    {
+      "trajectory_id": "e052b4d2-3f75-4ef9-b12e-4f3f02ca0448",
+      "labeled_by": "nikhil",
+      "label": "Incorrect Tool Usage",
+      "notes": "",
+      "id": "e052b4d2-3f75-4ef9-b12e-4f3f02ca0448_nikhil",
+      "labeled_at": "2026-01-12T15:27:57.769760",
+      "created_at": "2026-01-12T15:27:57.769760"
     }
   ]
 }
