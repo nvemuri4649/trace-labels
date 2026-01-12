@@ -35,6 +35,24 @@
       "id": "516ac799-ab0f-4776-bf4c-68d2a67a9b5e_nikhil",
       "labeled_at": "2026-01-12T15:07:00.060105",
       "created_at": "2026-01-12T15:07:00.060105"
+    },
+    {
+      "trajectory_id": "20945aa9-ff07-432b-ac04-f75aea2269b1",
+      "labeled_by": "nikhil",
+      "label": "Success",
+      "notes": "",
+      "id": "20945aa9-ff07-432b-ac04-f75aea2269b1_nikhil",
+      "labeled_at": "2026-01-12T15:11:13.873949",
+      "created_at": "2026-01-12T15:11:13.873949"
+    },
+    {
+      "trajectory_id": "a35aabf1-26bd-43ff-9aba-b6d1d8e33d6e",
+      "labeled_by": "nikhil",
+      "label": "Success",
+      "notes": "",
+      "id": "a35aabf1-26bd-43ff-9aba-b6d1d8e33d6e_nikhil",
+      "labeled_at": "2026-01-12T15:16:07.817517",
+      "created_at": "2026-01-12T15:16:07.817517"
     }
   ]
 }

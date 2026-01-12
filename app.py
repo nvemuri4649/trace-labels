@@ -48,43 +48,9 @@ st.markdown("""
         font-family: 'Outfit', sans-serif;
     }
     
-    /* Keyboard shortcut hint styling */
-    .keyboard-hint {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        text-align: center;
-    }
-    
-    .keyboard-hint kbd {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 32px;
-        height: 32px;
-        padding: 0 10px;
-        margin: 0 4px;
-        background: linear-gradient(180deg, #4f46e5 0%, #4338ca 100%);
-        border-radius: 6px;
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 700;
-        font-size: 0.95rem;
-        color: white;
-        box-shadow: 0 2px 0 #3730a3, 0 4px 8px rgba(0,0,0,0.3);
-        cursor: pointer;
-        transition: all 0.1s ease;
-    }
-    
-    .keyboard-hint kbd:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 0 #3730a3, 0 6px 12px rgba(0,0,0,0.3);
-    }
-    
-    .keyboard-hint kbd:active {
-        transform: translateY(2px);
-        box-shadow: 0 0px 0 #3730a3, 0 2px 4px rgba(0,0,0,0.3);
+    /* Sidebar label button styles */
+    .stSidebar button {
+        margin-bottom: 0.25rem;
     }
     
     /* Headers */
@@ -975,93 +941,20 @@ def render_labeling_interface():
     if existing_label:
         st.markdown(f"""
         <div style="background: rgba(5, 150, 105, 0.15); border: 1px solid #059669; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem;">
-            <span style="color: #34d399; font-weight: 600;">✓ Already labeled:</span>
-            <span style="color: #f1f5f9; margin-left: 0.5rem;">{existing_label.get('label', 'Unknown')}</span>
-            <span style="color: #94a3b8; font-size: 0.8rem; margin-left: 0.5rem;">
-                (use keyboard 1-7 or click buttons below to change)
-            </span>
+            <span style="color: #34d399; font-weight: 600;">Current label:</span>
+            <span style="color: #f1f5f9; margin-left: 0.5rem; font-weight: 600;">{existing_label.get('label', 'Unknown')}</span>
         </div>
         """, unsafe_allow_html=True)
     
-    # Initialize keyboard handler state
-    if "last_key_press" not in st.session_state:
-        st.session_state.last_key_press = None
-    if "clicked_label" not in st.session_state:
-        st.session_state.clicked_label = None
-    
-    # Label descriptions reference (moved up, before the fixed bar)
-    with st.expander("📖 Label Descriptions"):
+    # Label descriptions reference
+    with st.expander("Label Descriptions"):
         for idx, label_name in enumerate(config.LABELS):
             st.markdown(f"**[{idx+1}] {label_name}**: {config.LABEL_DESCRIPTIONS.get(label_name, '')}")
     
     st.markdown("---")
     
-    # Create inline label buttons (regular Streamlit buttons)
-    heading_text = "### 🏷️ Quick Label" + (" (Update)" if existing_label else "")
-    st.markdown(heading_text)
-    
-    # Keyboard shortcut hint with styled keys
-    st.markdown("""
-    <div class="keyboard-hint">
-        <span style="color: #94a3b8; font-size: 0.95rem;">Press keyboard </span>
-        <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd><kbd>6</kbd><kbd>7</kbd>
-        <span style="color: #94a3b8; font-size: 0.95rem;"> to label instantly</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Label colors for visual distinction
-    label_colors = {
-        "Success": "🟢",
-        "Fabricated Information": "🔴",
-        "Incorrect Tool Usage": "🟠",
-        "Misunderstood Task": "🔵",
-        "Phantom Progress": "🟣",
-        "Context Confusion": "🩷",
-        "Other Error": "⚪",
-    }
-    
-    # Create 2 rows of buttons
-    cols_row1 = st.columns(4)
-    cols_row2 = st.columns(4)
-    all_cols = cols_row1 + cols_row2
-    
-    for idx, label_name in enumerate(config.LABELS):
-        with all_cols[idx]:
-            key_num = idx + 1
-            is_current = existing_label and existing_label.get("label") == label_name
-            emoji = label_colors.get(label_name, "")
-            short_name = label_name[:11] + ("..." if len(label_name) > 11 else "")
-            btn_label = f"{key_num} {emoji} {short_name}"
-            
-            if st.button(
-                btn_label,
-                key=f"label_btn_{idx}",
-                use_container_width=True,
-                type="primary" if is_current else "secondary"
-            ):
-                existing_notes = existing_label.get("notes", "") if existing_label else ""
-                label_data = {
-                    "trajectory_id": current_trajectory.get("id"),
-                    "labeled_by": username,
-                    "label": label_name,
-                    "notes": existing_notes,
-                }
-                store.add_label(label_data)
-                
-                # Move to next trajectory
-                if current_idx < len(display_trajectories) - 1:
-                    st.session_state.current_trajectory_idx += 1
-                else:
-                    st.session_state.current_trajectory_idx = 0
-                st.rerun()
-    
-    # Note: Keyboard shortcuts (1-7) work in some browsers when focus is on the page.
-    # Clicking the buttons directly always works.
-    
-    st.markdown("---")
-    
     # Optional: Full form with notes for detailed labeling
-    expander_title = "📝 Edit Label with Notes" if existing_label else "📝 Add Notes with Label"
+    expander_title = "Edit Label with Notes" if existing_label else "Add Notes with Label"
     with st.expander(expander_title):
         # Get existing values for pre-filling
         existing_label_value = existing_label.get("label", config.LABELS[0]) if existing_label else config.LABELS[0]
@@ -1083,7 +976,7 @@ def render_labeling_interface():
                 placeholder="Any observations or reasoning for your label...",
             )
             
-            button_text = "💾 Update Label" if existing_label else "✅ Submit with Notes"
+            button_text = "Update Label" if existing_label else "Submit with Notes"
             submitted = st.form_submit_button(button_text, use_container_width=True, type="primary")
             
             if submitted:
@@ -1095,8 +988,6 @@ def render_labeling_interface():
                 }
                 
                 store.add_label(label_data)
-                action = "updated" if existing_label else "saved"
-                st.success(f"✅ Label {action} successfully!")
                 
                 # Move to next trajectory
                 if current_idx < len(display_trajectories) - 1:
@@ -1107,7 +998,7 @@ def render_labeling_interface():
                 st.rerun()
     
     # Skip button
-    if st.button("⏭️ Skip (come back later)", help="Skip this trajectory and move to the next one"):
+    if st.button("Skip (come back later)", help="Skip this trajectory and move to the next one"):
         if current_idx < len(display_trajectories) - 1:
             st.session_state.current_trajectory_idx += 1
         else:
@@ -1343,13 +1234,87 @@ def render_admin_panel():
 
 # ==================== MAIN APP ====================
 
+def apply_label_and_advance(label_idx: int):
+    """Apply a label to the current trajectory and advance to the next one"""
+    if not st.session_state.username:
+        return False
+    
+    store = st.session_state.data_store
+    username = st.session_state.username
+    
+    # Get user's trajectories
+    user_trajectories = store.get_trajectories_for_user(username)
+    user_labels = store.get_labels_by_user(username)
+    labels_by_trajectory = {l.get("trajectory_id"): l for l in user_labels}
+    
+    # Get unlabeled trajectories
+    if st.session_state.get("show_all_trajectories", False):
+        display_trajectories = user_trajectories
+    else:
+        display_trajectories = [t for t in user_trajectories if t.get("id") not in labels_by_trajectory]
+    
+    if not display_trajectories:
+        return False
+    
+    # Get current trajectory
+    current_idx = st.session_state.current_trajectory_idx
+    if current_idx >= len(display_trajectories):
+        current_idx = 0
+    
+    current_trajectory = display_trajectories[current_idx]
+    existing_label = labels_by_trajectory.get(current_trajectory.get("id"))
+    
+    # Apply the label
+    if 0 <= label_idx < len(config.LABELS):
+        existing_notes = existing_label.get("notes", "") if existing_label else ""
+        label_data = {
+            "trajectory_id": current_trajectory.get("id"),
+            "labeled_by": username,
+            "label": config.LABELS[label_idx],
+            "notes": existing_notes,
+        }
+        store.add_label(label_data)
+        
+        # Store the selected label for visual feedback
+        st.session_state.last_selected_label = label_idx
+        
+        # Move to next trajectory
+        if current_idx < len(display_trajectories) - 1:
+            st.session_state.current_trajectory_idx += 1
+        else:
+            st.session_state.current_trajectory_idx = 0
+        
+        return True
+    
+    return False
+
+
 def main():
     """Main app entry point"""
-    # Sidebar navigation
+    
+    # Initialize last selected label for visual feedback
+    if "last_selected_label" not in st.session_state:
+        st.session_state.last_selected_label = None
+    
+    # Check for keyboard shortcut via query params
+    query_params = st.query_params
+    if "label" in query_params:
+        try:
+            label_idx = int(query_params["label"]) - 1  # Convert 1-7 to 0-6
+            if apply_label_and_advance(label_idx):
+                # Clear the query param and rerun
+                st.query_params.clear()
+                st.rerun()
+        except (ValueError, IndexError):
+            pass
+        # Clear invalid params
+        st.query_params.clear()
+    
+    # Sidebar header
     st.sidebar.markdown(f"""
     <div style="text-align: center; padding: 1rem 0;">
-        <span style="font-size: 2.5rem;">🔬</span>
-        <h2 style="margin: 0.5rem 0;">Trajectory Labeling</h2>
+        <span style="font-size: 2rem;">🔬</span>
+        <h2 style="margin: 0.5rem 0; font-size: 1.3rem;">Trajectory Labeling</h2>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1365,16 +1330,66 @@ def main():
         st.rerun()
         return
     
+    # ==================== SIDEBAR LABEL BUTTONS ====================
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Quick Label")
+    st.sidebar.caption("Press 1-7 or click:")
+    
+    # Get current trajectory's existing label for highlighting
+    store = st.session_state.data_store
+    username = st.session_state.username
+    user_trajectories = store.get_trajectories_for_user(username)
+    user_labels = store.get_labels_by_user(username)
+    labels_by_trajectory = {l.get("trajectory_id"): l for l in user_labels}
+    
+    if st.session_state.get("show_all_trajectories", False):
+        display_trajectories = user_trajectories
+    else:
+        display_trajectories = [t for t in user_trajectories if t.get("id") not in labels_by_trajectory]
+    
+    current_label_name = None
+    if display_trajectories:
+        current_idx = st.session_state.current_trajectory_idx
+        if current_idx < len(display_trajectories):
+            current_trajectory = display_trajectories[current_idx]
+            existing = labels_by_trajectory.get(current_trajectory.get("id"))
+            if existing:
+                current_label_name = existing.get("label")
+    
+    # Create label buttons in sidebar
+    for idx, label_name in enumerate(config.LABELS):
+        key_num = idx + 1
+        is_current = label_name == current_label_name
+        was_just_selected = st.session_state.last_selected_label == idx
+        
+        # Button style based on state
+        btn_type = "primary" if is_current or was_just_selected else "secondary"
+        
+        if st.sidebar.button(
+            f"[{key_num}] {label_name}",
+            key=f"sidebar_label_{idx}",
+            use_container_width=True,
+            type=btn_type
+        ):
+            if apply_label_and_advance(idx):
+                st.rerun()
+    
+    # Clear the "just selected" highlight after rendering
+    if st.session_state.last_selected_label is not None:
+        st.session_state.last_selected_label = None
+    
+    st.sidebar.markdown("---")
+    
     # Navigation
     page = st.sidebar.radio(
         "Navigation",
-        ["🏷️ Label Trajectories", "📊 Dashboard", "📝 Review Labels"],
+        ["Label Trajectories", "Dashboard", "Review Labels"],
         label_visibility="collapsed"
     )
     
     # Logout button
     st.sidebar.markdown("---")
-    if st.sidebar.button("🚪 Logout"):
+    if st.sidebar.button("Logout"):
         st.session_state.username = None
         st.session_state.current_trajectory_idx = 0
         st.rerun()
@@ -1382,15 +1397,47 @@ def main():
     # Admin panel
     render_admin_panel()
     
+    # Inject keyboard shortcut handler using components.html for proper execution
+    import streamlit.components.v1 as components
+    
+    components.html("""
+    <script>
+    (function() {
+        // Access parent document (Streamlit's main frame)
+        const parentDoc = window.parent.document;
+        
+        if (parentDoc.keyboardHandlerInstalled) return;
+        parentDoc.keyboardHandlerInstalled = true;
+        
+        parentDoc.addEventListener('keydown', function(e) {
+            // Skip if in input/textarea
+            const tag = e.target.tagName.toLowerCase();
+            if (tag === 'input' || tag === 'textarea') return;
+            
+            const key = e.key;
+            if (key >= '1' && key <= '7') {
+                e.preventDefault();
+                // Update URL with label param to trigger Streamlit rerun
+                const url = new URL(window.parent.location.href);
+                url.searchParams.set('label', key);
+                window.parent.location.href = url.toString();
+            }
+        });
+        
+        console.log('Keyboard shortcuts ready! Press 1-7 to label.');
+    })();
+    </script>
+    """, height=0)
+    
     # Main content
-    if page == "🏷️ Label Trajectories":
+    if page == "Label Trajectories":
         if st.session_state.view_mode == "review":
             render_review_interface()
         else:
             render_labeling_interface()
-    elif page == "📊 Dashboard":
+    elif page == "Dashboard":
         render_dashboard()
-    elif page == "📝 Review Labels":
+    elif page == "Review Labels":
         st.session_state.view_mode = "review"
         render_review_interface()
 
