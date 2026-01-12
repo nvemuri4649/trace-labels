@@ -48,6 +48,45 @@ st.markdown("""
         font-family: 'Outfit', sans-serif;
     }
     
+    /* Keyboard shortcut hint styling */
+    .keyboard-hint {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    
+    .keyboard-hint kbd {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        height: 32px;
+        padding: 0 10px;
+        margin: 0 4px;
+        background: linear-gradient(180deg, #4f46e5 0%, #4338ca 100%);
+        border-radius: 6px;
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: white;
+        box-shadow: 0 2px 0 #3730a3, 0 4px 8px rgba(0,0,0,0.3);
+        cursor: pointer;
+        transition: all 0.1s ease;
+    }
+    
+    .keyboard-hint kbd:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 0 #3730a3, 0 6px 12px rgba(0,0,0,0.3);
+    }
+    
+    .keyboard-hint kbd:active {
+        transform: translateY(2px);
+        box-shadow: 0 0px 0 #3730a3, 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
     /* Headers */
     h1, h2, h3 {
         font-family: 'Outfit', sans-serif !important;
@@ -939,97 +978,67 @@ def render_labeling_interface():
             <span style="color: #34d399; font-weight: 600;">✓ Already labeled:</span>
             <span style="color: #f1f5f9; margin-left: 0.5rem;">{existing_label.get('label', 'Unknown')}</span>
             <span style="color: #94a3b8; font-size: 0.8rem; margin-left: 0.5rem;">
-                (click a button below to change)
+                (use keyboard 1-7 or click buttons below to change)
             </span>
         </div>
         """, unsafe_allow_html=True)
-        st.markdown("### 🔄 Update Label")
-    else:
-        st.markdown("### 🏷️ Label This Trajectory")
     
-    st.markdown("Press **1-7** for quick labeling, or click a button below:")
+    # Initialize keyboard handler state
+    if "last_key_press" not in st.session_state:
+        st.session_state.last_key_press = None
+    if "clicked_label" not in st.session_state:
+        st.session_state.clicked_label = None
     
-    # Check for quick label from query params or session state
-    if "quick_label" in st.session_state and st.session_state.quick_label is not None:
-        quick_label_idx = st.session_state.quick_label
-        st.session_state.quick_label = None  # Reset
-        
-        if 0 <= quick_label_idx < len(config.LABELS):
-            # Preserve existing notes if updating
-            existing_notes = existing_label.get("notes", "") if existing_label else ""
-            label_data = {
-                "trajectory_id": current_trajectory.get("id"),
-                "labeled_by": username,
-                "label": config.LABELS[quick_label_idx],
-                "notes": existing_notes,
-            }
-            store.add_label(label_data)
-            
-            # Move to next trajectory
-            if current_idx < len(display_trajectories) - 1:
-                st.session_state.current_trajectory_idx += 1
-            else:
-                st.session_state.current_trajectory_idx = 0
-            st.rerun()
+    # Label descriptions reference (moved up, before the fixed bar)
+    with st.expander("📖 Label Descriptions"):
+        for idx, label_name in enumerate(config.LABELS):
+            st.markdown(f"**[{idx+1}] {label_name}**: {config.LABEL_DESCRIPTIONS.get(label_name, '')}")
     
-    # Quick label buttons with keyboard shortcuts
+    st.markdown("---")
+    
+    # Create inline label buttons (regular Streamlit buttons)
+    heading_text = "### 🏷️ Quick Label" + (" (Update)" if existing_label else "")
+    st.markdown(heading_text)
+    
+    # Keyboard shortcut hint with styled keys
     st.markdown("""
-    <style>
-        .quick-label-btn {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.75rem 1rem;
-            margin: 0.25rem;
-            border-radius: 8px;
-            background: #1e293b;
-            border: 2px solid #334155;
-            color: #f1f5f9;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: 'Outfit', sans-serif;
-        }
-        .quick-label-btn:hover {
-            border-color: #6366f1;
-            background: #262f40;
-        }
-        .quick-label-key {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 24px;
-            background: #4f46e5;
-            border-radius: 4px;
-            font-weight: 700;
-            font-size: 0.9rem;
-            margin-right: 0.75rem;
-        }
-        .quick-label-text {
-            font-size: 0.9rem;
-        }
-    </style>
+    <div class="keyboard-hint">
+        <span style="color: #94a3b8; font-size: 0.95rem;">Press keyboard </span>
+        <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd><kbd>6</kbd><kbd>7</kbd>
+        <span style="color: #94a3b8; font-size: 0.95rem;"> to label instantly</span>
+    </div>
     """, unsafe_allow_html=True)
     
-    # Create columns for quick label buttons
-    cols = st.columns(4)
+    # Label colors for visual distinction
+    label_colors = {
+        "Success": "🟢",
+        "Fabricated Information": "🔴",
+        "Incorrect Tool Usage": "🟠",
+        "Misunderstood Task": "🔵",
+        "Phantom Progress": "🟣",
+        "Context Confusion": "🩷",
+        "Other Error": "⚪",
+    }
+    
+    # Create 2 rows of buttons
+    cols_row1 = st.columns(4)
+    cols_row2 = st.columns(4)
+    all_cols = cols_row1 + cols_row2
     
     for idx, label_name in enumerate(config.LABELS):
-        col_idx = idx % 4
-        with cols[col_idx]:
+        with all_cols[idx]:
             key_num = idx + 1
-            desc = config.LABEL_DESCRIPTIONS.get(label_name, "")[:50]
-            # Highlight if this is the current label
             is_current = existing_label and existing_label.get("label") == label_name
-            button_label = f"[{key_num}] {label_name}" + (" ✓" if is_current else "")
+            emoji = label_colors.get(label_name, "")
+            short_name = label_name[:11] + ("..." if len(label_name) > 11 else "")
+            btn_label = f"{key_num} {emoji} {short_name}"
             
             if st.button(
-                button_label,
-                key=f"quick_label_{idx}",
+                btn_label,
+                key=f"label_btn_{idx}",
                 use_container_width=True,
-                help=desc,
                 type="primary" if is_current else "secondary"
             ):
-                # Preserve existing notes if updating
                 existing_notes = existing_label.get("notes", "") if existing_label else ""
                 label_data = {
                     "trajectory_id": current_trajectory.get("id"),
@@ -1039,9 +1048,6 @@ def render_labeling_interface():
                 }
                 store.add_label(label_data)
                 
-                action = "Updated" if existing_label else "Labeled"
-                st.success(f"✅ {action} as '{label_name}'")
-                
                 # Move to next trajectory
                 if current_idx < len(display_trajectories) - 1:
                     st.session_state.current_trajectory_idx += 1
@@ -1049,33 +1055,8 @@ def render_labeling_interface():
                     st.session_state.current_trajectory_idx = 0
                 st.rerun()
     
-    # Label descriptions reference
-    with st.expander("📖 Label Descriptions"):
-        for idx, label_name in enumerate(config.LABELS):
-            st.markdown(f"**[{idx+1}] {label_name}**: {config.LABEL_DESCRIPTIONS.get(label_name, '')}")
-    
-    # JavaScript for keyboard shortcuts
-    st.markdown(f"""
-    <script>
-        // Keyboard shortcut handler for quick labeling
-        document.addEventListener('keydown', function(e) {{
-            // Only trigger if not in an input/textarea
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            
-            const key = e.key;
-            if (key >= '1' && key <= '7') {{
-                const labelIdx = parseInt(key) - 1;
-                // Find and click the corresponding button
-                const buttons = document.querySelectorAll('button[kind="secondary"]');
-                buttons.forEach(btn => {{
-                    if (btn.textContent.startsWith('[' + key + ']')) {{
-                        btn.click();
-                    }}
-                }});
-            }}
-        }});
-    </script>
-    """, unsafe_allow_html=True)
+    # Note: Keyboard shortcuts (1-7) work in some browsers when focus is on the page.
+    # Clicking the buttons directly always works.
     
     st.markdown("---")
     

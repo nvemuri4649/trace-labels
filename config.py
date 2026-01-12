@@ -35,7 +35,9 @@ STORAGE_BACKENDS = [
 ]
 
 # Default storage backend
-DEFAULT_STORAGE = "local_json"
+# Set to "firestore" for production deployment with persistent storage
+# Set to "local_json" for local development
+DEFAULT_STORAGE = "local_json"  # Change to "firestore" for production
 
 # Local storage paths
 LOCAL_DATA_DIR = "data"
