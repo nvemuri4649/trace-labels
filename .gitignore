@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Data files (uncomment if you want to track data)
+# data/trajectories.json
+# data/labels.json
+# data/users.json
+
+# Keep sample data
+!data/sample_trajectories.json
+
+# Google Cloud credentials
+*.json
+!data/*.json
+!package.json
+
+# Environment files
+.env
+.env.local
+*.pem
