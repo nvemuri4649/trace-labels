@@ -12,6 +12,21 @@ import hashlib
 
 import config
 
+# Try to import Streamlit for secrets access
+try:
+    import streamlit as st
+    HAS_STREAMLIT = True
+except ImportError:
+    HAS_STREAMLIT = False
+
+# Try to import Firestore
+try:
+    from google.cloud import firestore
+    from google.oauth2 import service_account
+    HAS_FIRESTORE = True
+except ImportError:
+    HAS_FIRESTORE = False
+
 
 class LocalJSONStore:
     """Local JSON/JSONL file-based storage for development"""
@@ -322,9 +337,106 @@ class LocalJSONStore:
         return [t for t in user_trajectories if t.get("id") not in labeled_ids]
 
 
+class FirestoreLabelStore(LocalJSONStore):
+    """
+    Hybrid store: reads trajectories from local JSONL, stores labels in Firestore.
+    This allows collaborative labeling across multiple users.
+    """
+    
+    def __init__(self, data_dir: str = config.LOCAL_DATA_DIR):
+        # Initialize parent for trajectory loading
+        super().__init__(data_dir)
+        
+        # Initialize Firestore
+        self.db = self._init_firestore()
+        self.labels_collection = "labels"
+        self.users_collection = "users"
+    
+    def _init_firestore(self):
+        """Initialize Firestore client from Streamlit secrets"""
+        if HAS_STREAMLIT and HAS_FIRESTORE:
+            try:
+                # Try to get credentials from Streamlit secrets
+                if "GOOGLE_APPLICATION_CREDENTIALS_JSON" in st.secrets:
+                    creds_json = st.secrets["GOOGLE_APPLICATION_CREDENTIALS_JSON"]
+                    if isinstance(creds_json, str):
+                        creds_dict = json.loads(creds_json)
+                    else:
+                        creds_dict = dict(creds_json)
+                    
+                    credentials = service_account.Credentials.from_service_account_info(creds_dict)
+                    return firestore.Client(credentials=credentials, project=creds_dict.get("project_id"))
+                
+                elif "gcp_service_account" in st.secrets:
+                    creds_dict = dict(st.secrets["gcp_service_account"])
+                    credentials = service_account.Credentials.from_service_account_info(creds_dict)
+                    return firestore.Client(credentials=credentials, project=creds_dict.get("project_id"))
+            except Exception as e:
+                st.warning(f"Failed to initialize Firestore: {e}. Falling back to local storage.")
+        return None
+    
+    def get_all_labels(self) -> list:
+        """Get all labels from Firestore"""
+        if self.db:
+            try:
+                docs = self.db.collection(self.labels_collection).stream()
+                return [doc.to_dict() for doc in docs]
+            except Exception as e:
+                print(f"Firestore read error: {e}")
+        # Fallback to local
+        return super().get_all_labels()
+    
+    def add_label(self, label: dict) -> str:
+        """Add or update a label in Firestore"""
+        label_id = f"{label['trajectory_id']}_{label['labeled_by']}"
+        label["id"] = label_id
+        label["labeled_at"] = datetime.now().isoformat()
+        
+        if self.db:
+            try:
+                # Check if exists
+                doc_ref = self.db.collection(self.labels_collection).document(label_id)
+                existing = doc_ref.get()
+                
+                if existing.exists:
+                    label["updated_at"] = datetime.now().isoformat()
+                    label["created_at"] = existing.to_dict().get("created_at", label["labeled_at"])
+                else:
+                    label["created_at"] = label["labeled_at"]
+                
+                doc_ref.set(label)
+                return label_id
+            except Exception as e:
+                print(f"Firestore write error: {e}")
+        
+        # Fallback to local
+        return super().add_label(label)
+    
+    def delete_label(self, label_id: str) -> bool:
+        """Delete a label from Firestore"""
+        if self.db:
+            try:
+                self.db.collection(self.labels_collection).document(label_id).delete()
+                return True
+            except Exception as e:
+                print(f"Firestore delete error: {e}")
+        return super().delete_label(label_id)
+
+
 def get_data_store(backend: str = None):
     """Factory function to get the appropriate data store"""
     backend = backend or os.environ.get("STORAGE_BACKEND", config.DEFAULT_STORAGE)
     
-    # For now, only local JSON store is implemented
+    # Check if we should use Firestore
+    use_firestore = False
+    if HAS_STREAMLIT and HAS_FIRESTORE:
+        try:
+            if "GOOGLE_APPLICATION_CREDENTIALS_JSON" in st.secrets or "gcp_service_account" in st.secrets:
+                use_firestore = True
+        except:
+            pass  # Secrets not available (running locally without secrets)
+    
+    if use_firestore or backend == "firestore":
+        return FirestoreLabelStore()
+    
     return LocalJSONStore()
