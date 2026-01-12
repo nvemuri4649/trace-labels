@@ -5,6 +5,7 @@ A collaborative Streamlit app for labeling AI agent trajectories
 
 import streamlit as st
 import json
+import time
 from datetime import datetime
 import pandas as pd
 import plotly.express as px
@@ -12,6 +13,8 @@ import plotly.graph_objects as go
 
 import config
 from data_store import get_data_store
+
+# Streamlit 1.52+ supports native keyboard shortcuts on buttons
 
 # ==================== PAGE CONFIG ====================
 
@@ -1278,11 +1281,11 @@ def apply_label_and_advance(label_idx: int):
         # Store the selected label for visual feedback
         st.session_state.last_selected_label = label_idx
         
-        # Move to next trajectory
+        # Store next trajectory index (will be applied after delay)
         if current_idx < len(display_trajectories) - 1:
-            st.session_state.current_trajectory_idx += 1
+            st.session_state.next_trajectory_idx = current_idx + 1
         else:
-            st.session_state.current_trajectory_idx = 0
+            st.session_state.next_trajectory_idx = 0
         
         return True
     
@@ -1295,20 +1298,6 @@ def main():
     # Initialize last selected label for visual feedback
     if "last_selected_label" not in st.session_state:
         st.session_state.last_selected_label = None
-    
-    # Check for keyboard shortcut via query params
-    query_params = st.query_params
-    if "label" in query_params:
-        try:
-            label_idx = int(query_params["label"]) - 1  # Convert 1-7 to 0-6
-            if apply_label_and_advance(label_idx):
-                # Clear the query param and rerun
-                st.query_params.clear()
-                st.rerun()
-        except (ValueError, IndexError):
-            pass
-        # Clear invalid params
-        st.query_params.clear()
     
     # Sidebar header
     st.sidebar.markdown(f"""
@@ -1356,7 +1345,19 @@ def main():
             if existing:
                 current_label_name = existing.get("label")
     
-    # Create label buttons in sidebar
+    # Check if we need to show "just labeled" feedback and then advance
+    if st.session_state.get("pending_advance", False):
+        # Show the selection for 1 second, then advance
+        time.sleep(1)
+        st.session_state.pending_advance = False
+        st.session_state.last_selected_label = None
+        # Apply the stored next trajectory index
+        if "next_trajectory_idx" in st.session_state:
+            st.session_state.current_trajectory_idx = st.session_state.next_trajectory_idx
+            del st.session_state.next_trajectory_idx
+        st.rerun()
+    
+    # Create label buttons in sidebar with native keyboard shortcuts
     for idx, label_name in enumerate(config.LABELS):
         key_num = idx + 1
         is_current = label_name == current_label_name
@@ -1365,18 +1366,23 @@ def main():
         # Button style based on state
         btn_type = "primary" if is_current or was_just_selected else "secondary"
         
+        # Use native shortcut parameter (Streamlit 1.52+)
         if st.sidebar.button(
             f"[{key_num}] {label_name}",
             key=f"sidebar_label_{idx}",
             use_container_width=True,
-            type=btn_type
+            type=btn_type,
+            shortcut=str(key_num)  # Native keyboard shortcut
         ):
             if apply_label_and_advance(idx):
+                # Set pending advance to show selection before moving
+                st.session_state.pending_advance = True
                 st.rerun()
     
-    # Clear the "just selected" highlight after rendering
+    # Show success message when a label was just applied
     if st.session_state.last_selected_label is not None:
-        st.session_state.last_selected_label = None
+        label_name = config.LABELS[st.session_state.last_selected_label]
+        st.sidebar.success(f"Labeled: {label_name}")
     
     st.sidebar.markdown("---")
     
@@ -1396,38 +1402,6 @@ def main():
     
     # Admin panel
     render_admin_panel()
-    
-    # Inject keyboard shortcut handler using components.html for proper execution
-    import streamlit.components.v1 as components
-    
-    components.html("""
-    <script>
-    (function() {
-        // Access parent document (Streamlit's main frame)
-        const parentDoc = window.parent.document;
-        
-        if (parentDoc.keyboardHandlerInstalled) return;
-        parentDoc.keyboardHandlerInstalled = true;
-        
-        parentDoc.addEventListener('keydown', function(e) {
-            // Skip if in input/textarea
-            const tag = e.target.tagName.toLowerCase();
-            if (tag === 'input' || tag === 'textarea') return;
-            
-            const key = e.key;
-            if (key >= '1' && key <= '7') {
-                e.preventDefault();
-                // Update URL with label param to trigger Streamlit rerun
-                const url = new URL(window.parent.location.href);
-                url.searchParams.set('label', key);
-                window.parent.location.href = url.toString();
-            }
-        });
-        
-        console.log('Keyboard shortcuts ready! Press 1-7 to label.');
-    })();
-    </script>
-    """, height=0)
     
     # Main content
     if page == "Label Trajectories":

@@ -53,6 +53,24 @@
       "id": "a35aabf1-26bd-43ff-9aba-b6d1d8e33d6e_nikhil",
       "labeled_at": "2026-01-12T15:16:07.817517",
       "created_at": "2026-01-12T15:16:07.817517"
+    },
+    {
+      "trajectory_id": "126901fd-3e6f-48b8-9196-fe2fab091f35",
+      "labeled_by": "nikhil",
+      "label": "Success",
+      "notes": "",
+      "id": "126901fd-3e6f-48b8-9196-fe2fab091f35_nikhil",
+      "labeled_at": "2026-01-12T15:18:29.894048",
+      "created_at": "2026-01-12T15:18:29.894048"
+    },
+    {
+      "trajectory_id": "1dabca32-fedb-43af-a14f-201a2d7605a0",
+      "labeled_by": "nikhil",
+      "label": "Success",
+      "notes": "",
+      "id": "1dabca32-fedb-43af-a14f-201a2d7605a0_nikhil",
+      "labeled_at": "2026-01-12T15:27:26.502029",
+      "created_at": "2026-01-12T15:27:26.502029"
     }
   ]
 }
