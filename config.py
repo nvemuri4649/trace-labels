@@ -26,7 +26,7 @@ LABEL_DESCRIPTIONS = {
 }
 
 # Allowed labelers - traces will be split among these users
-ALLOWED_LABELERS = ["brian", "nikhil", "andrew"]
+ALLOWED_LABELERS = ["brian", "nikhil", "andrew", "rain"]
 
 # Data storage backend options
 STORAGE_BACKENDS = [
