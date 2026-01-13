@@ -5,11 +5,15 @@ LLM-as-Judge: Evaluate agent trajectories using GPT-5.2.
 Runs 5 iterations of the LLM on each trajectory and takes a majority vote.
 Results are saved to data/llm_predictions.json.
 
+INCREMENTAL MODE: By default, skips already-evaluated trajectories.
+Use --force to re-evaluate everything.
+
 Usage:
-    python llm_judge.py                    # Evaluate all trajectories
-    python llm_judge.py --limit 10         # Evaluate first 10 trajectories
+    python llm_judge.py                    # Evaluate new trajectories only
+    python llm_judge.py --limit 10         # Evaluate first 10 (unevaluated) trajectories
     python llm_judge.py --concurrency 10   # Run 10 concurrent evaluations
     python llm_judge.py --verbose          # Show detailed progress
+    python llm_judge.py --force            # Re-evaluate ALL trajectories
 """
 
 from __future__ import annotations
@@ -560,10 +564,25 @@ async def batch_evaluate(
 # Save Results
 # -----------------------------------------------------------------------------
 
-def save_predictions(results: List[TrajectoryResult], output_path: Path):
-    """Save predictions to JSON file."""
-    predictions = {}
+def load_existing_predictions(output_path: Path) -> Dict[str, Dict[str, Any]]:
+    """Load existing predictions from file if it exists."""
+    if not output_path.exists():
+        return {}
     
+    try:
+        with open(output_path, 'r') as f:
+            data = json.load(f)
+        return data.get("predictions", {})
+    except (json.JSONDecodeError, IOError):
+        return {}
+
+
+def save_predictions(results: List[TrajectoryResult], output_path: Path, existing_predictions: Dict[str, Dict[str, Any]] = None):
+    """Save predictions to JSON file, merging with existing predictions."""
+    # Start with existing predictions
+    predictions = dict(existing_predictions) if existing_predictions else {}
+    
+    # Add/update with new results
     for result in results:
         scores = [it.score for it in result.iterations if it.score is not None]
         reasonings = [it.reasoning for it in result.iterations if it.reasoning]
@@ -602,14 +621,14 @@ def save_predictions(results: List[TrajectoryResult], output_path: Path):
         "model": config.LLM_MODEL,
         "iterations_per_trajectory": config.LLM_JUDGE_ITERATIONS,
         "temperature": config.LLM_TEMPERATURE,
-        "total_trajectories": len(results),
+        "total_trajectories": len(predictions),
         "predictions": predictions,
     }
     
     with open(output_path, 'w') as f:
         json.dump(output, f, indent=2)
     
-    print(f"\n✓ Predictions saved to {output_path}")
+    print(f"\n✓ Predictions saved to {output_path} ({len(predictions)} total)")
 
 
 def print_summary(results: List[TrajectoryResult]):
@@ -645,11 +664,32 @@ async def main_async(args: argparse.Namespace) -> int:
         print("Set it with: export OPENAI_API_KEY=your-key-here")
         return 1
     
+    output_path = Path(config.DATA_DIR) / config.LLM_PREDICTIONS_FILE
+    
+    # Load existing predictions (for incremental mode)
+    existing_predictions = {}
+    if not args.force:
+        existing_predictions = load_existing_predictions(output_path)
+        if existing_predictions:
+            print(f"Found {len(existing_predictions)} existing predictions")
+    
     # Load trajectories
     trajectories = load_trajectories(limit=args.limit)
     if not trajectories:
         print("No trajectories to evaluate")
         return 1
+    
+    # Filter out already-evaluated trajectories (unless --force)
+    if existing_predictions and not args.force:
+        original_count = len(trajectories)
+        trajectories = [t for t in trajectories if t["id"] not in existing_predictions]
+        skipped = original_count - len(trajectories)
+        if skipped > 0:
+            print(f"Skipping {skipped} already-evaluated trajectories")
+        
+        if not trajectories:
+            print("All trajectories already evaluated. Use --force to re-evaluate.")
+            return 0
     
     # Run evaluation
     results = await batch_evaluate(
@@ -664,9 +704,8 @@ async def main_async(args: argparse.Namespace) -> int:
     # Print summary
     print_summary(results)
     
-    # Save results
-    output_path = Path(config.DATA_DIR) / config.LLM_PREDICTIONS_FILE
-    save_predictions(results, output_path)
+    # Save results (merged with existing)
+    save_predictions(results, output_path, existing_predictions)
     
     return 0
 
@@ -689,6 +728,8 @@ def main() -> int:
         help="Number of concurrent API calls (default: 5)")
     parser.add_argument("--verbose", "-v", action="store_true",
         help="Show detailed progress")
+    parser.add_argument("--force", "-f", action="store_true",
+        help="Force re-evaluation of all trajectories (ignore existing predictions)")
     
     args = parser.parse_args()
     return asyncio.run(main_async(args))
