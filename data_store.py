@@ -118,6 +118,8 @@ class LocalDataStore:
         
         Trajectories are evenly distributed among ALLOWED_LABELERS by index.
         Each labeler gets every Nth trajectory based on their position in the list.
+        
+        Trajectories with LLM predictions are shown FIRST, then those without.
         """
         all_trajectories = self.get_all_trajectories()
         
@@ -131,6 +133,17 @@ class LocalDataStore:
         
         # Assign trajectories by index modulo
         assigned = [t for i, t in enumerate(all_trajectories) if i % num_labelers == user_index]
+        
+        # Sort: trajectories with LLM predictions come first
+        llm_predictions = self.get_llm_predictions()
+        
+        def sort_key(trajectory):
+            has_prediction = trajectory["id"] in llm_predictions
+            # Primary sort: has prediction (True=0, False=1, so predicted first)
+            # Secondary sort: content length (longest first)
+            return (0 if has_prediction else 1, -trajectory.get('content_length', 0))
+        
+        assigned.sort(key=sort_key)
         return assigned
     
     def get_llm_predictions(self) -> Dict[str, Dict[str, Any]]:
