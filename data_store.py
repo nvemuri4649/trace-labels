@@ -1,65 +1,54 @@
 """
-Data Store Module - Handles all data persistence operations
-Supports local JSON storage and Google Cloud Firestore
+Data Store Module - Simple local file storage for trajectory labeling.
+
+Each labeler saves their labels to a personal file: data/labels_{username}.json
+These files can be aggregated later for analysis.
 """
 
 import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-import hashlib
+from typing import Dict, List, Optional, Any
 
 import config
 
-# Try to import Streamlit for secrets access
-try:
-    import streamlit as st
-    HAS_STREAMLIT = True
-except ImportError:
-    HAS_STREAMLIT = False
 
-# Try to import Firestore
-try:
-    from google.cloud import firestore
-    from google.oauth2 import service_account
-    HAS_FIRESTORE = True
-except ImportError:
-    HAS_FIRESTORE = False
-
-
-class LocalJSONStore:
-    """Local JSON/JSONL file-based storage for development"""
+class LocalDataStore:
+    """Local file-based storage for each labeler."""
     
-    def __init__(self, data_dir: str = config.LOCAL_DATA_DIR):
-        self.data_dir = Path(data_dir)
+    def __init__(self, username: str):
+        self.username = username.lower().strip()
+        self.data_dir = Path(config.DATA_DIR)
         self.data_dir.mkdir(exist_ok=True)
-        self._trajectories_cache = None
-        self._assignments_cache = None
-        self._ensure_files_exist()
-    
-    def _ensure_files_exist(self):
-        """Create default files if they don't exist"""
-        labels_path = self.data_dir / config.LABELS_FILE
-        users_path = self.data_dir / config.USERS_FILE
         
-        if not labels_path.exists():
-            self._write_json(labels_path, {"labels": []})
-        if not users_path.exists():
-            self._write_json(users_path, {"users": {}})
+        # Each user gets their own labels file
+        self.labels_file = self.data_dir / f"labels_{self.username}.json"
+        self._trajectories_cache = None
+        self._llm_predictions_cache = None
+        
+        self._ensure_labels_file()
+    
+    def _ensure_labels_file(self):
+        """Create labels file if it doesn't exist."""
+        if not self.labels_file.exists():
+            self._write_json(self.labels_file, {"labels": [], "labeler": self.username})
     
     def _read_json(self, path: Path) -> dict:
-        """Read and parse JSON file"""
-        with open(path, 'r') as f:
-            return json.load(f)
+        """Read and parse JSON file."""
+        try:
+            with open(path, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return {}
     
     def _write_json(self, path: Path, data: dict):
-        """Write data to JSON file"""
+        """Write data to JSON file."""
         with open(path, 'w') as f:
             json.dump(data, f, indent=2, default=str)
     
-    def _load_trajectories_from_jsonl(self) -> list:
-        """Load trajectories from JSONL file"""
+    def get_all_trajectories(self) -> List[Dict[str, Any]]:
+        """Load all trajectories from JSONL file."""
         if self._trajectories_cache is not None:
             return self._trajectories_cache
         
@@ -76,10 +65,9 @@ class LocalJSONStore:
                     continue
                 try:
                     trace = json.loads(line)
-                    # Use trace_id as the ID, or generate one
                     trace_id = trace.get('trace_id', f"trace_{line_num}")
                     
-                    # Parse input to extract the task/messages
+                    # Parse input to extract messages
                     input_data = trace.get('input', '')
                     messages = []
                     task = ""
@@ -89,24 +77,21 @@ class LocalJSONStore:
                             parsed_input = json.loads(input_data)
                             if isinstance(parsed_input, list):
                                 messages = parsed_input
-                                # Get task from user messages or system prompt
                                 for msg in parsed_input:
                                     if isinstance(msg, dict):
                                         role = msg.get('role', '')
                                         content = msg.get('content', '')
                                         if role == 'user' and content:
-                                            task = content[:500]  # First user message as task
+                                            task = content[:500]
                                             break
-                                        elif role == 'system' and not task:
-                                            task = content[:200]  # System prompt as fallback
                     except json.JSONDecodeError:
-                        task = input_data[:500] if input_data else "No task description"
+                        pass
                     
                     # Parse output
                     output_data = trace.get('output', '')
                     
-                    # Calculate trajectory length (total content size)
-                    content_length = len(input_data) + len(output_data)
+                    # Calculate content length for sorting
+                    content_length = len(json.dumps(messages) + str(output_data))
                     
                     trajectory = {
                         "id": trace_id,
@@ -116,327 +101,114 @@ class LocalJSONStore:
                         "span_name": trace.get('span_name', ''),
                         "created_at": trace.get('created_at', ''),
                         "duration": trace.get('duration', 0),
-                        "error": trace.get('error', ''),
-                        "content_length": content_length,  # For sorting by length
-                        "raw_trace": trace,  # Keep the full trace for reference
+                        "content_length": content_length,
+                        "raw_trace": trace,
                     }
                     trajectories.append(trajectory)
-                except json.JSONDecodeError as e:
-                    print(f"Error parsing line {line_num}: {e}")
+                except json.JSONDecodeError:
                     continue
         
+        # Sort by content length (longest first)
+        trajectories.sort(key=lambda x: x.get('content_length', 0), reverse=True)
         self._trajectories_cache = trajectories
         return trajectories
     
-    def _get_user_assignments(self) -> dict:
-        """
-        Get the assignment of trajectories to users.
-        Splits trajectories evenly among allowed labelers.
-        Trajectories are sorted by length (longest first) before assignment.
-        """
-        if self._assignments_cache is not None:
-            return self._assignments_cache
+    def get_llm_predictions(self) -> Dict[str, Dict[str, Any]]:
+        """Load LLM predictions from the predictions file."""
+        if self._llm_predictions_cache is not None:
+            return self._llm_predictions_cache
         
-        trajectories = self._load_trajectories_from_jsonl()
-        labelers = config.ALLOWED_LABELERS
+        predictions_path = self.data_dir / config.LLM_PREDICTIONS_FILE
+        if not predictions_path.exists():
+            return {}
         
-        # Sort trajectories by content_length (longest first)
-        sorted_trajectories = sorted(
-            trajectories, 
-            key=lambda t: t.get('content_length', 0), 
-            reverse=True
-        )
-        
-        # Split trajectories evenly (round-robin assignment)
-        assignments = {labeler: [] for labeler in labelers}
-        
-        for idx, trajectory in enumerate(sorted_trajectories):
-            assigned_labeler = labelers[idx % len(labelers)]
-            assignments[assigned_labeler].append(trajectory['id'])
-        
-        self._assignments_cache = assignments
-        return assignments
+        data = self._read_json(predictions_path)
+        predictions = data.get("predictions", {})
+        self._llm_predictions_cache = predictions
+        return predictions
     
-    # ==================== TRAJECTORIES ====================
+    def get_llm_prediction_for_trajectory(self, trajectory_id: str) -> Optional[Dict[str, Any]]:
+        """Get LLM prediction for a specific trajectory."""
+        predictions = self.get_llm_predictions()
+        return predictions.get(trajectory_id)
     
-    def get_all_trajectories(self) -> list:
-        """Get all trajectories"""
-        return self._load_trajectories_from_jsonl()
-    
-    def get_trajectories_for_user(self, username: str) -> list:
-        """Get trajectories assigned to a specific user, sorted by length (longest first)"""
-        if username not in config.ALLOWED_LABELERS:
-            return []
-        
-        assignments = self._get_user_assignments()
-        assigned_ids = set(assignments.get(username, []))
-        
-        all_trajectories = self._load_trajectories_from_jsonl()
-        user_trajectories = [t for t in all_trajectories if t['id'] in assigned_ids]
-        
-        # Sort by content_length (longest first)
-        return sorted(user_trajectories, key=lambda t: t.get('content_length', 0), reverse=True)
-    
-    def get_trajectory(self, trajectory_id: str) -> Optional[dict]:
-        """Get a single trajectory by ID"""
-        trajectories = self._load_trajectories_from_jsonl()
-        for t in trajectories:
-            if t.get("id") == trajectory_id:
-                return t
-        return None
-    
-    # ==================== LABELS ====================
-    
-    def get_all_labels(self) -> list:
-        """Get all labels"""
-        data = self._read_json(self.data_dir / config.LABELS_FILE)
+    def get_all_labels(self) -> List[Dict[str, Any]]:
+        """Get all labels from this user's file."""
+        data = self._read_json(self.labels_file)
         return data.get("labels", [])
     
-    def get_labels_for_trajectory(self, trajectory_id: str) -> list:
-        """Get all labels for a specific trajectory"""
+    def get_label_for_trajectory(self, trajectory_id: str) -> Optional[Dict[str, Any]]:
+        """Get label for a specific trajectory."""
         labels = self.get_all_labels()
-        return [l for l in labels if l.get("trajectory_id") == trajectory_id]
+        for label in labels:
+            if label.get("trajectory_id") == trajectory_id:
+                return label
+        return None
     
-    def get_labels_by_user(self, username: str) -> list:
-        """Get all labels by a specific user"""
-        labels = self.get_all_labels()
-        return [l for l in labels if l.get("labeled_by") == username]
-    
-    def add_label(self, label: dict) -> str:
-        """Add or update a label"""
-        labels = self.get_all_labels()
+    def add_label(self, trajectory_id: str, label: int, notes: str = "") -> str:
+        """Add or update a label for a trajectory."""
+        data = self._read_json(self.labels_file)
+        labels = data.get("labels", [])
         
-        # Generate label ID
-        label_id = f"{label['trajectory_id']}_{label['labeled_by']}"
-        label["id"] = label_id
-        label["labeled_at"] = datetime.now().isoformat()
-        
-        # Check if this user already labeled this trajectory (update)
+        # Check if label already exists
         existing_idx = None
-        for idx, l in enumerate(labels):
-            if l.get("id") == label_id:
+        for idx, existing in enumerate(labels):
+            if existing.get("trajectory_id") == trajectory_id:
                 existing_idx = idx
                 break
         
+        label_entry = {
+            "trajectory_id": trajectory_id,
+            "label": label,  # 0 or 1
+            "notes": notes,
+            "labeled_at": datetime.now().isoformat(),
+            "labeler": self.username,
+        }
+        
         if existing_idx is not None:
-            label["updated_at"] = datetime.now().isoformat()
-            label["created_at"] = labels[existing_idx].get("created_at", label["labeled_at"])
-            labels[existing_idx] = label
+            label_entry["created_at"] = labels[existing_idx].get("created_at", label_entry["labeled_at"])
+            label_entry["updated_at"] = label_entry["labeled_at"]
+            labels[existing_idx] = label_entry
         else:
-            label["created_at"] = label["labeled_at"]
-            labels.append(label)
+            label_entry["created_at"] = label_entry["labeled_at"]
+            labels.append(label_entry)
         
-        self._write_json(
-            self.data_dir / config.LABELS_FILE,
-            {"labels": labels}
-        )
-        return label_id
-    
-    def delete_label(self, label_id: str) -> bool:
-        """Delete a label by ID"""
-        labels = self.get_all_labels()
-        original_len = len(labels)
-        labels = [l for l in labels if l.get("id") != label_id]
+        data["labels"] = labels
+        data["labeler"] = self.username
+        data["last_updated"] = datetime.now().isoformat()
         
-        if len(labels) < original_len:
-            self._write_json(
-                self.data_dir / config.LABELS_FILE,
-                {"labels": labels}
-            )
-            return True
-        return False
+        self._write_json(self.labels_file, data)
+        return trajectory_id
     
-    # ==================== USERS ====================
-    
-    def get_all_users(self) -> dict:
-        """Get all users"""
-        data = self._read_json(self.data_dir / config.USERS_FILE)
-        return data.get("users", {})
-    
-    def get_user(self, username: str) -> Optional[dict]:
-        """Get a user by username"""
-        users = self.get_all_users()
-        return users.get(username)
-    
-    def add_user(self, username: str, user_data: dict) -> bool:
-        """Add or update a user"""
-        users = self.get_all_users()
-        
-        if username not in users:
-            user_data["created_at"] = datetime.now().isoformat()
-        else:
-            user_data["created_at"] = users[username].get("created_at", datetime.now().isoformat())
-        
-        user_data["last_active"] = datetime.now().isoformat()
-        users[username] = user_data
-        
-        self._write_json(
-            self.data_dir / config.USERS_FILE,
-            {"users": users}
-        )
-        return True
-    
-    def update_user_activity(self, username: str):
-        """Update user's last active timestamp"""
-        users = self.get_all_users()
-        if username in users:
-            users[username]["last_active"] = datetime.now().isoformat()
-            self._write_json(
-                self.data_dir / config.USERS_FILE,
-                {"users": users}
-            )
-    
-    # ==================== STATISTICS ====================
-    
-    def get_labeling_stats(self) -> dict:
-        """Get overall labeling statistics"""
+    def get_unlabeled_trajectories(self) -> List[Dict[str, Any]]:
+        """Get trajectories that haven't been labeled yet."""
         all_trajectories = self.get_all_trajectories()
         labels = self.get_all_labels()
-        users = self.get_all_users()
+        labeled_ids = {l.get("trajectory_id") for l in labels}
         
-        # Count labels per user
-        user_label_counts = {}
+        return [t for t in all_trajectories if t.get("id") not in labeled_ids]
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get labeling statistics."""
+        all_trajectories = self.get_all_trajectories()
+        labels = self.get_all_labels()
+        
+        label_counts = {0: 0, 1: 0}
         for label in labels:
-            user = label.get("labeled_by")
-            user_label_counts[user] = user_label_counts.get(user, 0) + 1
-        
-        # Count label distribution
-        label_distribution = {}
-        for label in labels:
-            label_value = label.get("label", "Unknown")
-            label_distribution[label_value] = label_distribution.get(label_value, 0) + 1
-        
-        # Get per-user stats
-        user_stats = {}
-        assignments = self._get_user_assignments()
-        for labeler in config.ALLOWED_LABELERS:
-            assigned_count = len(assignments.get(labeler, []))
-            labeled_count = user_label_counts.get(labeler, 0)
-            user_stats[labeler] = {
-                "assigned": assigned_count,
-                "labeled": labeled_count,
-                "remaining": assigned_count - labeled_count,
-                "completion_rate": labeled_count / assigned_count if assigned_count > 0 else 0
-            }
+            lval = label.get("label")
+            if lval in label_counts:
+                label_counts[lval] += 1
         
         return {
             "total_trajectories": len(all_trajectories),
-            "total_labels": len(labels),
-            "total_users": len(users),
-            "labels_per_user": user_label_counts,
-            "label_distribution": label_distribution,
-            "user_stats": user_stats,
+            "labeled": len(labels),
+            "remaining": len(all_trajectories) - len(labels),
+            "erroneous_count": label_counts[0],
+            "successful_count": label_counts[1],
+            "completion_rate": len(labels) / len(all_trajectories) if all_trajectories else 0,
         }
-    
-    def get_unlabeled_trajectories_for_user(self, username: str) -> list:
-        """Get trajectories assigned to user that they haven't labeled yet"""
-        user_trajectories = self.get_trajectories_for_user(username)
-        user_labels = self.get_labels_by_user(username)
-        labeled_ids = {l.get("trajectory_id") for l in user_labels}
-        
-        return [t for t in user_trajectories if t.get("id") not in labeled_ids]
 
 
-class FirestoreLabelStore(LocalJSONStore):
-    """
-    Hybrid store: reads trajectories from local JSONL, stores labels in Firestore.
-    This allows collaborative labeling across multiple users.
-    """
-    
-    def __init__(self, data_dir: str = config.LOCAL_DATA_DIR):
-        # Initialize parent for trajectory loading
-        super().__init__(data_dir)
-        
-        # Initialize Firestore
-        self.db = self._init_firestore()
-        self.labels_collection = "labels"
-        self.users_collection = "users"
-    
-    def _init_firestore(self):
-        """Initialize Firestore client from Streamlit secrets"""
-        if HAS_STREAMLIT and HAS_FIRESTORE:
-            try:
-                # Try to get credentials from Streamlit secrets
-                if "GOOGLE_APPLICATION_CREDENTIALS_JSON" in st.secrets:
-                    creds_json = st.secrets["GOOGLE_APPLICATION_CREDENTIALS_JSON"]
-                    if isinstance(creds_json, str):
-                        creds_dict = json.loads(creds_json)
-                    else:
-                        creds_dict = dict(creds_json)
-                    
-                    credentials = service_account.Credentials.from_service_account_info(creds_dict)
-                    return firestore.Client(credentials=credentials, project=creds_dict.get("project_id"))
-                
-                elif "gcp_service_account" in st.secrets:
-                    creds_dict = dict(st.secrets["gcp_service_account"])
-                    credentials = service_account.Credentials.from_service_account_info(creds_dict)
-                    return firestore.Client(credentials=credentials, project=creds_dict.get("project_id"))
-            except Exception as e:
-                st.warning(f"Failed to initialize Firestore: {e}. Falling back to local storage.")
-        return None
-    
-    def get_all_labels(self) -> list:
-        """Get all labels from Firestore"""
-        if self.db:
-            try:
-                docs = self.db.collection(self.labels_collection).stream()
-                return [doc.to_dict() for doc in docs]
-            except Exception as e:
-                print(f"Firestore read error: {e}")
-        # Fallback to local
-        return super().get_all_labels()
-    
-    def add_label(self, label: dict) -> str:
-        """Add or update a label in Firestore"""
-        label_id = f"{label['trajectory_id']}_{label['labeled_by']}"
-        label["id"] = label_id
-        label["labeled_at"] = datetime.now().isoformat()
-        
-        if self.db:
-            try:
-                # Check if exists
-                doc_ref = self.db.collection(self.labels_collection).document(label_id)
-                existing = doc_ref.get()
-                
-                if existing.exists:
-                    label["updated_at"] = datetime.now().isoformat()
-                    label["created_at"] = existing.to_dict().get("created_at", label["labeled_at"])
-                else:
-                    label["created_at"] = label["labeled_at"]
-                
-                doc_ref.set(label)
-                return label_id
-            except Exception as e:
-                print(f"Firestore write error: {e}")
-        
-        # Fallback to local
-        return super().add_label(label)
-    
-    def delete_label(self, label_id: str) -> bool:
-        """Delete a label from Firestore"""
-        if self.db:
-            try:
-                self.db.collection(self.labels_collection).document(label_id).delete()
-                return True
-            except Exception as e:
-                print(f"Firestore delete error: {e}")
-        return super().delete_label(label_id)
-
-
-def get_data_store(backend: str = None):
-    """Factory function to get the appropriate data store"""
-    backend = backend or os.environ.get("STORAGE_BACKEND", config.DEFAULT_STORAGE)
-    
-    # Check if we should use Firestore
-    use_firestore = False
-    if HAS_STREAMLIT and HAS_FIRESTORE:
-        try:
-            if "GOOGLE_APPLICATION_CREDENTIALS_JSON" in st.secrets or "gcp_service_account" in st.secrets:
-                use_firestore = True
-        except:
-            pass  # Secrets not available (running locally without secrets)
-    
-    if use_firestore or backend == "firestore":
-        return FirestoreLabelStore()
-    
-    return LocalJSONStore()
+def get_data_store(username: str) -> LocalDataStore:
+    """Factory function to get data store for a user."""
+    return LocalDataStore(username)

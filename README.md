@@ -1,224 +1,179 @@
-# 🔬 AI Trajectory Labeling Tool
+# Trajectory Labeling Tool
 
-A collaborative Streamlit web app for labeling AI agent trajectories. Multiple labelers can access the same interface via URL and write annotations to a shared backend in real-time.
+A simple, local-first tool for labeling AI agent trajectories with binary success/failure labels.
 
-## Features
+## How It Works
 
-- **Pre-assigned labelers**: Data is automatically split among Brian, Nikhil, and Andrew
-- **Real-time sync**: All labels are centrally stored and synchronized
-- **Progress tracking**: Dashboard shows individual and team progress
-- **Simple 6-label system**: Each trajectory gets exactly one label
-- **Export capabilities**: Download labels as JSON or CSV
+1. **Each labeler clones the repo and runs locally**
+2. **Labels are saved per-user** to `data/labels_{username}.json`
+3. **LLM predictions are pre-computed** and displayed alongside each trajectory
+4. **Aggregate labels later** by collecting all `labels_*.json` files
 
-## Labeling Task
-
-Each trajectory represents an AI agent's execution trace (conversation + response). Labelers assign exactly **one** of 7 labels:
-
-| Key | Label | Description |
-|-----|-------|-------------|
-| **1** | Success | The agent correctly completed the task as requested |
-| **2** | Fabricated Information | Agent makes up facts, files, data, or information that doesn't exist |
-| **3** | Incorrect Tool Usage | Agent uses the wrong tool, wrong parameters, or misuses available tools |
-| **4** | Misunderstood Task | Agent misinterprets what was asked and works on wrong objective |
-| **5** | Phantom Progress | Agent claims success or completion without actually finishing the task |
-| **6** | Context Confusion | Agent confuses context from different parts of the conversation or mixes up information |
-| **7** | Other Error | Any other error or issue not covered by the above categories |
-
-### Quick Labeling
-
-**Press keys 1-7** to instantly label and move to the next trajectory. This enables rapid labeling without clicking.
-
-### Trajectory Ordering
-
-Trajectories are **sorted by length (longest first)** so each labeler tackles the most substantial traces first.
-
----
-
-## Quick Start (Local Development)
-
-### 1. Install Dependencies
+## Quick Start
 
 ```bash
-cd /Users/nikhil/Documents/StudioProjects/judgment-internal-trace-labeling
+# Clone the repo
+git clone <your-repo-url>
+cd judgment-internal-trace-labeling
 
-# Create virtual environment (recommended)
+# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install packages
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### 2. Run the App
-
-```bash
+# Run the app
 streamlit run app.py
 ```
 
-The app will open at `http://localhost:8501`
+Then open http://localhost:8501 in your browser.
 
-### 3. Login and Start Labeling
+## Binary Labels
 
-- Click your name (Brian, Nikhil, or Andrew) to log in
-- You'll see only your assigned trajectories
-- Label each trajectory and click Submit
+- **0 = Erroneous**: The agent failed to complete the task or made errors
+- **1 = Successful**: The agent successfully completed the task
 
----
+## LLM Judge Script
 
-## Data Assignment
-
-The 641 traces from `data/monaco_traces.jsonl` are automatically split:
-
-| Labeler | Assigned Traces |
-|---------|-----------------|
-| Brian   | 214 |
-| Nikhil  | 214 |
-| Andrew  | 213 |
-
-Each labeler only sees their assigned subset.
-
----
-
-## Deployment Options
-
-### Option 1: Streamlit Community Cloud (Recommended - Free)
-
-1. **Push to GitHub**:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/YOUR_USERNAME/trajectory-labeling.git
-   git push -u origin main
-   ```
-
-2. **Deploy on Streamlit Cloud**:
-   - Go to [share.streamlit.io](https://share.streamlit.io)
-   - Sign in with GitHub
-   - Click "New app"
-   - Select your repository, branch (`main`), and file (`app.py`)
-   - Click "Deploy"
-
-### Option 2: Self-Hosted (Docker)
-
-Create `Dockerfile`:
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-EXPOSE 8501
-
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
-```
-
-Build and run:
+Run the LLM judge to generate predictions for all trajectories:
 
 ```bash
-docker build -t trajectory-labeling .
-docker run -p 8501:8501 -v $(pwd)/data:/app/data trajectory-labeling
+# Set your OpenAI API key
+export OPENAI_API_KEY=your-key-here
+
+# Run the judge (evaluates all trajectories)
+python llm_judge.py
+
+# Options:
+python llm_judge.py --limit 10          # Only evaluate first 10
+python llm_judge.py --concurrency 10    # More parallel API calls
+python llm_judge.py --verbose           # Detailed output
 ```
 
----
+The judge:
+- Uses GPT-5.2 (or your configured model)
+- Runs 5 iterations per trajectory
+- Takes majority vote for final prediction
+- Saves results to `data/llm_predictions.json`
 
-## Data Format
-
-### Input: Traces (monaco_traces.jsonl)
-
-Each line is a JSON object with:
-
-```json
-{
-  "trace_id": "unique-id",
-  "input": "[{\"role\": \"system\", \"content\": \"...\"}, {\"role\": \"user\", \"content\": \"...\"}]",
-  "output": "Agent response...",
-  "span_name": "chat_completions",
-  "created_at": "2025-12-12T17:30:00Z",
-  "duration": 1234
-}
-```
-
-### Output: Labels (labels.json)
-
-```json
-{
-  "labels": [
-    {
-      "id": "trace-id_labeler-name",
-      "trajectory_id": "trace-id",
-      "labeled_by": "nikhil",
-      "label": "Success",
-      "notes": "Optional notes...",
-      "labeled_at": "2026-01-12T13:00:00",
-      "created_at": "2026-01-12T13:00:00"
-    }
-  ]
-}
-```
-
----
+**Important**: Commit and push `data/llm_predictions.json` to the repo so all labelers can see LLM predictions.
 
 ## Project Structure
 
 ```
 judgment-internal-trace-labeling/
-├── app.py                 # Main Streamlit application
-├── config.py              # Labels and configuration
-├── data_store.py          # Data persistence layer
-├── requirements.txt       # Python dependencies
-├── data/
-│   ├── monaco_traces.jsonl  # 641 AI agent traces (input)
-│   ├── labels.json          # User labels (output)
-│   └── users.json           # User records
-└── README.md
+├── app.py                      # Streamlit labeling app
+├── llm_judge.py                # LLM-as-Judge evaluation script
+├── config.py                   # Configuration settings
+├── data_store.py               # Data storage module
+├── requirements.txt            # Python dependencies
+├── README.md                   # This file
+└── data/
+    ├── monaco_traces.jsonl     # Source trajectories (tracked in Git LFS)
+    ├── llm_predictions.json    # LLM predictions (commit to repo)
+    └── labels_{username}.json  # Per-user labels (each person's local file)
 ```
 
----
+## Workflow
 
-## Customization
+### For the project lead:
 
-### Modify Labels
+1. Run the LLM judge to generate predictions:
+   ```bash
+   python llm_judge.py
+   ```
 
-Edit `config.py`:
+2. Commit and push the predictions:
+   ```bash
+   git add data/llm_predictions.json
+   git commit -m "Add LLM predictions"
+   git push
+   ```
+
+### For each labeler:
+
+1. Clone the repo (or pull latest):
+   ```bash
+   git clone <repo-url>
+   # or
+   git pull origin main
+   ```
+
+2. Run the app locally:
+   ```bash
+   streamlit run app.py
+   ```
+
+3. Enter your name and start labeling
+
+4. Labels are automatically saved to `data/labels_{yourname}.json`
+
+5. When done, share your labels file with the project lead
+   ```bash
+   # Option A: Email/Slack the file
+   # Option B: Commit and push (if you have write access)
+   git add data/labels_yourname.json
+   git commit -m "Add labels from yourname"
+   git push
+   ```
+
+### Aggregating labels:
+
+Collect all `data/labels_*.json` files and merge them:
 
 ```python
-LABELS = [
-    "Success",
-    "Your Custom Label 1",
-    "Your Custom Label 2",
-    # ...
-]
+import json
+from pathlib import Path
 
-LABEL_DESCRIPTIONS = {
-    "Success": "Description of success...",
-    "Your Custom Label 1": "Description...",
-    # ...
-}
+all_labels = {}
+for f in Path("data").glob("labels_*.json"):
+    data = json.loads(f.read_text())
+    labeler = data.get("labeler", f.stem.replace("labels_", ""))
+    for label in data.get("labels", []):
+        tid = label["trajectory_id"]
+        if tid not in all_labels:
+            all_labels[tid] = {}
+        all_labels[tid][labeler] = label["label"]
+
+# all_labels now contains: {trajectory_id: {labeler1: 0, labeler2: 1, ...}}
 ```
 
-### Change Allowed Labelers
+## Configuration
 
-Edit `config.py`:
+Edit `config.py` to customize:
 
 ```python
-ALLOWED_LABELERS = ["alice", "bob", "charlie"]
+# LLM Judge settings
+LLM_MODEL = "gpt-5.2"           # OpenAI model to use
+LLM_JUDGE_ITERATIONS = 5        # Number of iterations for majority vote
+LLM_TEMPERATURE = 0.7           # Temperature for non-determinism
+
+# Data paths
+DATA_DIR = "data"
+TRAJECTORIES_FILE = "monaco_traces.jsonl"
+LLM_PREDICTIONS_FILE = "llm_predictions.json"
 ```
 
----
+## Requirements
 
-## Tips for Labelers
+- Python 3.10+
+- OpenAI API key (for LLM judge)
+- ~100MB disk space for trajectories
 
-1. **Read carefully**: Review the full conversation before labeling
-2. **Use the correct label**: Choose the most specific failure mode
-3. **Add notes**: Document edge cases or reasoning
-4. **Review periodically**: Use the Review tab to check your past labels
+## Troubleshooting
 
----
+**"No trajectories found"**: Make sure `data/monaco_traces.jsonl` exists. If using Git LFS:
+```bash
+git lfs pull
+```
 
-## License
+**"OPENAI_API_KEY not set"**: Export your API key:
+```bash
+export OPENAI_API_KEY=your-key-here
+```
 
-MIT License
+**App not loading**: Try a different port:
+```bash
+streamlit run app.py --server.port 8502
+```
