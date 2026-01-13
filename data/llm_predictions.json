@@ -1,0 +1,353 @@
+{
+  "timestamp": "2026-01-12T17:33:30.074630",
+  "model": "gpt-5.2",
+  "iterations_per_trajectory": 5,
+  "temperature": 0.7,
+  "total_trajectories": 10,
+  "predictions": {
+    "004313af-468b-4c44-b119-837212d332be": {
+      "final_score": 0,
+      "confidence": 1.0,
+      "individual_scores": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "reasonings": [
+        "The task was to provide a summary and next steps from the meeting with the Pylon account. The agent did not produce any human-readable meeting summary or actionable next steps; instead it output raw tool/metadata JSON and a truncated meeting object, with no transcript content or synthesized takeaways. This is an incomplete response relative to the user\u2019s request.",
+        "The task was to provide a meeting summary and clear next steps. The agent did not produce a human-readable summary or next steps; it only output raw tool/record JSON metadata and invitation details, with no synthesis of what was discussed or actionable follow-ups. This is an incomplete response relative to the user\u2019s request.",
+        "The task was to provide a meeting summary and next steps for the Pylon account meeting. The agent did not produce any human-readable summary or next steps; instead it output raw tool/record JSON metadata (and truncated event details) without synthesizing the discussion or actions. This is an incomplete response relative to the user request."
+      ],
+      "num_valid_iterations": 5,
+      "total_time_s": 44.6409113407135,
+      "primary_error_type": "incomplete_response",
+      "error_details": [
+        {
+          "error_type": "incomplete_response",
+          "error_citation": "[002] USER/FINAL OUTPUT: \"{\\\"results\\\":[{\\\"result_type\\\":\\\"metadata\\\",\\\"meeting_id\\\":\\\"f62990b7-efd3-4e5a-a26e-5936adaa7453\\\",\\\"title\\\":\\\"Pylon Demo | Monaco\\\",\\\"start_time\\\":\\\"2025-12-12T17:30:00+00:00\\\",...\"",
+          "error_explanation": "This output is just meeting metadata and a raw meeting object; it does not include a synthesized summary of the conversation nor any recommended next steps. A correct completion would summarize key topics/needs/decisions from the transcript (or explicitly note transcript unavailable) and then list concrete next actions (e.g., follow-up email, stakeholders to add, pricing/procurement steps, next meeting) with owners and timelines."
+        },
+        {
+          "error_type": "incomplete_response",
+          "error_citation": "[002] USER: give me summary and next steps of my meerting with Pylon account\n\nFINAL OUTPUT:\n\"{\\\"results\\\":[{\\\"result_type\\\":\\\"metadata\\\",...\\\"meeting_transcript_id\\\":null,...}]...\\\"title\\\":\\\"Pylon Demo | Monaco\\\"...\\\"description\\\":\\\"<p>Excited to show you Pylon! ...\\\"...[truncated]",
+          "error_explanation": "The user asked for a summary and next steps, but the agent returned only raw meeting metadata/invite content and did not provide any synthesized summary of what happened in the meeting or actionable next steps. A correct response would include a concise recap (agenda, pains, requirements, decisions) and a bullet list of next actions (e.g., send follow-up, schedule technical deep dive, share pricing/security docs, assign owners/dates)."
+        },
+        {
+          "error_type": "incomplete_response",
+          "error_citation": "[002] USER: \"give me summary and next steps of my meerting with Pylon account\" ... FINAL OUTPUT: \"{\\\"results\\\":[{\\\"result_type\\\":\\\"metadata\\\"...\"",
+          "error_explanation": "The agent was expected to synthesize the meeting into a summary and actionable next steps. The provided output is only raw meeting metadata and description (with transcript_id null), and does not include any summary or next steps, so the task was not completed."
+        }
+      ]
+    },
+    "00493054-fec7-4cbb-b603-4cdd70587e9a": {
+      "final_score": 0,
+      "confidence": 1.0,
+      "individual_scores": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "reasonings": [
+        "The agent did not successfully complete the task because it hallucinated account details and then attributed quotes to Backops that were explicitly from a different account/meeting (Surveill). The user requested Backops-specific evidence from meetings/emails; the agent provided incorrect quotes and only later admitted it lacked Backops transcripts/emails. This is a clear hallucination and failure to use/verify the correct account data.",
+        "The agent did not successfully complete the user\u2019s request using Backops-specific sources. It hallucinated quotes and strategy details and attributed them to a meeting that appears unrelated (\u201cSurveill/Suveill\u201d), then later admitted it did not have Backops transcripts/emails. This indicates the earlier claims were unsupported and incorrect for the Backops account.",
+        "The agent did not successfully complete the user\u2019s request using Backops-specific account artifacts. It initially fabricated/attributed quotes and strategy details to Backops AI but sourced them from a different account/meeting (\u201cSurveill/Suveill\u201d), which the user correctly flagged. This is a clear hallucination/misattribution. Although the agent later admitted it lacked Backops transcripts/emails, the prior incorrect quotes mean the task was not completed successfully and contained factual errors."
+      ],
+      "num_valid_iterations": 5,
+      "total_time_s": 960.0661189556122,
+      "primary_error_type": "hallucination",
+      "error_details": [
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT: \"The BackOps AI opportunity is closed-won, with a $25,000 contract finalized on October 12, 2025.\"\n\n[011] ASSISTANT: \"Here are direct quotes from Backops (Surveill) meetings that show their pre-Monaco demand generation strategy:\"",
+          "error_explanation": "No tool outputs or cited records in the trajectory support the claim that BackOps AI was closed-won for $25,000 on 2025-10-12, so this is an unsupported fabrication. Additionally, the agent explicitly uses a Surveill meeting as the source of 'Backops' quotes, which is not Backops account data; the user correctly points out this mismatch. The correct behavior would have been to pull and cite meetings/emails tied to the Backops account (or state inability before generating quotes), then quote verbatim from those Backops-specific records."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[011] ASSISTANT: \"Here are direct quotes from Backops (Surveill) meetings that show their pre-Monaco demand generation strategy:\"",
+          "error_explanation": "The agent claims the quotes are from Backops meetings, but it labels them as \"Surveill\" and cites a meeting titled \"Monaco / Suveill Quck Connect,\" which the user indicates is not from the Backops AI account. Additionally, the agent later admits it lacks Backops-specific transcripts/emails, so it could not have produced verified Backops quotes. The correct approach would be to pull and analyze meetings/emails tied to the Backops account and only quote from those records."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[011] ASSISTANT: \"Here are direct quotes from Backops (Surveill) meetings that show their pre-Monaco demand generation strategy:\"",
+          "error_explanation": "The user requested quotes specifically from the Backops AI account\u2019s meetings/emails. The agent instead cited a different meeting/account (\u201cSurveill/Suveill\u201d) and presented those quotes as evidence for Backops\u2019 strategy. This is an unsupported and incorrect attribution; the agent should have retrieved and quoted Backops AI account-specific meetings/emails or stated it could not access them before making claims."
+        }
+      ]
+    },
+    "0086d930-4e2c-49cd-a7c9-5bb4f2988150": {
+      "final_score": 0,
+      "confidence": 1.0,
+      "individual_scores": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "reasonings": [
+        "The agent did not successfully complete the original task (summarize the opportunity for account \u201cSimple\u201d) using supported data. It asserted detailed opportunity information (stages, owners, dates, pricing, contacts, tool stack, product usage intentions) without any tool outputs shown in the trajectory, and later admitted it had no record of \u201cSphinx,\u201d indicating earlier answers were not grounded. This is consistent with hallucination and failure to follow the tool-usage requirement to look up the account/opportunity before summarizing.",
+        "The agent did not successfully complete the original task (summarize the opportunity for the account \u201cSimple\u201d) using supported data. It asserted specific opportunity details (stage, owner, contacts, dates, pricing, risks) without any tool outputs shown, and later continued to provide detailed account/opportunity information for \u201cSimple AI\u201d and feature plans (call recording, gifting, demand gen) also without citing any retrieved records. These are unsupported/hallucinated given the trajectory contains no tool calls or evidence. Therefore the response is erroneous.",
+        "The agent was asked to summarize the opportunity for the account \u201cSimple.\u201d Instead of using any tools to look up the account/opportunity, it asserted that no open opportunity existed and then provided a detailed opportunity summary for a different account (\u201cSquack\u201d) with specific names, dates, pricing, and next steps\u2014none of which are supported by any tool output in the trajectory. This is a clear hallucination and failure to complete the original task as requested."
+      ],
+      "num_valid_iterations": 5,
+      "total_time_s": 44.97714042663574,
+      "primary_error_type": "hallucination",
+      "error_details": [
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT: \"There is no open opportunity found for the account \\\"Simple.\\\" However, there is an opportunity at a similarly named account, \\\"Squack.\\\" If you meant Squack, here\u2019s a summary of the most recent opportunity:\\n\\n- Stage: Proposal\\n- Owner: Sam Blond\\n- Status: Progressing from demo to onboarding\\n- Key contacts: Aleks \u0110eki\u0107 (lead), Johanna Johansson (recently added)\\n- Timeline: Demo held Nov 5, onboarding call set for Dec 10\\n- Commercials: Beta free, then $25K (first year), $50K post-GA\\n- Risks: Internal buy-in not secured, possible tool migration friction, buyer considering alternatives\\n- Next steps: Send Slack invite, request CSV and sales collateral\"",
+          "error_explanation": "The trajectory contains no tool calls or tool outputs showing that (a) \u201cSimple\u201d has no open opportunity, (b) an account \u201cSquack\u201d exists, or (c) any of the detailed fields (stage, owner, contacts, dates, commercials, risks, next steps) are present in CRM data. These specifics are therefore unsupported and constitute hallucination. The correct behavior would have been to query the CRM/tools (e.g., accounts/opportunities) for \u201cSimple\u201d (and then \u201cSimple AI\u201d when clarified) and summarize the actual opportunity record(s) returned."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT: \"There is no open opportunity found for the account \\\"Simple.\\\" However, there is an opportunity at a similarly named account, \\\"Squack.\\\" ... - Stage: Proposal - Owner: Sam Blond ... Demo held Nov 5, onboarding call set for Dec 10 ... $25K ... $50K post-GA\"",
+          "error_explanation": "The trajectory shows no tool calls or tool outputs that could substantiate the existence of an opportunity at \u201cSquack\u201d or any of the listed fields (stage, owner, contacts, dates, pricing). As a result, these specifics are made up/unsupported. The agent should have used the available CRM tools (e.g., accounts/opportunities) to look up the \u201cSimple\u201d (or \u201cSimple AI\u201d) account and then summarize the actual opportunity record returned, or ask for clarification only after verifying via tools."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT: \"There is no open opportunity found for the account \"Simple.\" However, there is an opportunity at a similarly named account, \"Squack.\" If you meant Squack, here\u2019s a summary of the most recent opportunity:\n\n- Stage: Proposal\n- Owner: Sam Blond\n- Status: Progressing from demo to onboarding\n- Key contacts: Aleks \u0110eki\u0107 (lead), Johanna Johansson (recently added)\n- Timeline: Demo held Nov 5, onboarding call set for Dec 10\n- Commercials: Beta free, then $25K (first year), $50K post-GA\n- Risks: Internal buy-in not secured, possible tool migration friction, buyer considering alternatives\n- Next steps: Send Slack invite, request CSV and sales collateral\"",
+          "error_explanation": "No tool calls or tool outputs are shown anywhere in the trajectory to support (a) the claim that Simple has no open opportunity or (b) any of the detailed opportunity facts about \u201cSquack\u201d (stage, owner, contacts, dates, commercials, risks, next steps). The agent should have queried the CRM tools (e.g., accounts/opportunities) to locate the \u201cSimple\u201d account and its opportunity, then summarized the verified opportunity record."
+        }
+      ]
+    },
+    "00ac8f63-d38c-4a2b-af08-a2b8f5a7eeec": {
+      "final_score": 0,
+      "confidence": 1.0,
+      "individual_scores": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "reasonings": [
+        "The agent provided a brief summary for four stalled opportunities, but there is no evidence it actually queried the CRM/tools to identify \u201call\u201d stalled or closed-lost opportunities. It also asserted that no closed-lost opportunities existed, which is contradicted by later output showing a closed-lost opportunity (Knowlify). This indicates an incomplete and likely hallucinated/unsupported claim about the dataset coverage and closed-lost count.",
+        "The task was to summarize why all stalled or closed-lost opportunities are stalled/lost. The agent provided a short list of four \u201cstalled\u201d accounts and asserted no closed-lost opportunities existed, but the trajectory contains no tool outputs or data retrieval supporting those specific deal-level claims. Additionally, the final output shows at least one opportunity (Knowlify) is explicitly marked \u201cclosed-lost,\u201d contradicting the agent\u2019s earlier statement that no closed-lost opportunities were found. This indicates unsupported assertions and an incorrect conclusion.",
+        "The agent provided a high-level summary for four stalled opportunities and claimed no closed-lost opportunities existed, but there is no supporting tool output shown in the trajectory to substantiate any of these deal-specific details. Additionally, the user\u2019s original request was for all stalled or closed-lost opportunities; the agent\u2019s response appears partial (only four) and likely incorrect given later evidence showing at least one closed-lost opportunity (Knowlify)."
+      ],
+      "num_valid_iterations": 5,
+      "total_time_s": 35.513911485672,
+      "primary_error_type": "hallucination",
+      "error_details": [
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT: \"No closed-lost opportunities were found in this data set; only stalled opportunities surfaced.\"",
+          "error_explanation": "This statement is contradicted by the later final output showing an opportunity named \"Knowlify\" with stage \"closed-lost\". Therefore the agent\u2019s assertion that there were no closed-lost opportunities is false/unsupported, and the response is not a complete summary for all stalled or closed-lost opportunities."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT: \"_No closed-lost opportunities were found in this data set; only stalled opportunities surfaced._\"",
+          "error_explanation": "This statement is contradicted by the later included data in the trajectory\u2019s final output, which shows an opportunity named \u201cKnowlify\u201d with \"stage\":\"closed-lost\". Therefore, the agent\u2019s claim that no closed-lost opportunities were found is incorrect, and the original task (summarize stalled or closed-lost opps) was not successfully completed accurately."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT: \"No closed-lost opportunities were found in this data set; only stalled opportunities surfaced.\"",
+          "error_explanation": "The later shown data includes an opportunity named \"Knowlify\" with stage \"closed-lost\" (in the FINAL OUTPUT JSON). Therefore the assistant\u2019s categorical statement that no closed-lost opportunities were found is false. Additionally, because no tool outputs are shown to justify the earlier stalled/lost rationales, the response contains unsupported factual assertions."
+        }
+      ]
+    },
+    "00b93ba3-631c-4539-b4bf-781888898074": {
+      "final_score": 0,
+      "confidence": 1.0,
+      "individual_scores": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "reasonings": [
+        "The agent gave a specific revenue figure ($50,000 across two closed-won deals) without any supporting tool output or data in the trajectory to substantiate those numbers. This is a likely hallucination because the transcript shows no CRM query/results backing the claim.",
+        "The task was to determine how much revenue Sam Blond has booked for Monaco. The agent provided a specific dollar amount and deal breakdown, but the trajectory shows no supporting tool output or data source validating those figures. This constitutes an unsupported claim/hallucination relative to the provided evidence.",
+        "The task was to determine how much revenue Sam Blond has booked for Monaco. The agent provided a specific closed-won total ($50,000) and attributed it to two deals, but the trajectory contains no tool output or underlying data supporting those figures. Therefore the answer is unsupported and constitutes a hallucination."
+      ],
+      "num_valid_iterations": 5,
+      "total_time_s": 33.061039447784424,
+      "primary_error_type": "hallucination",
+      "error_details": [
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT\n     [Sam Blond](entity=contact;entityId=91b336fb-88b3-4664-b91f-7d2e2d011d44) has booked $50,000 in closed-won revenue for Monaco across two deals:\n\n- $25,000 with [nowadays.ai](entity=account;entityId=7af254ab-e968-46fd-8281-ab7255fbe54f)\n- $25,000 with [Dealops](entity=account;entityId=bf6c5ea0-b043-477e-a659-4829987122fe)",
+          "error_explanation": "No CRM/tool output or underlying data is shown anywhere in the trajectory to justify the $50,000 total or the two $25,000 closed-won deals with nowadays.ai and Dealops. Without evidence, these figures appear fabricated. A correct response would cite the actual deal records (or tool results) showing Sam Blond\u2019s closed-won amounts and then sum them."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT\n     [Sam Blond](entity=contact;entityId=91b336fb-88b3-4664-b91f-7d2e2d011d44) has booked $50,000 in closed-won revenue for Monaco across two deals:\n\n- $25,000 with [nowadays.ai](entity=account;entityId=7af254ab-e968-46fd-8281-ab7255fbe54f)\n- $25,000 with [Dealops](entity=account;entityId=bf6c5ea0-b043-477e-a659-4829987122fe)",
+          "error_explanation": "No CRM/tool output or other provided data in the trajectory supports the claim that Sam Blond booked $50,000 closed-won, nor the two $25,000 deal amounts. Without evidence, these figures are fabricated/unsupported. A correct response would cite the underlying deal records or tool results used to compute booked (closed-won) revenue."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT\n     [Sam Blond](entity=contact;entityId=91b336fb-88b3-4664-b91f-7d2e2d011d44) has booked $50,000 in closed-won revenue for Monaco across two deals:\n\n- $25,000 with [nowadays.ai](entity=account;entityId=7af254ab-e968-46fd-8281-ab7255fbe54f)\n- $25,000 with [Dealops](entity=account;entityId=bf6c5ea0-b043-477e-a659-4829987122fe)",
+          "error_explanation": "No CRM/tool output or dataset in the provided trajectory shows Sam Blond\u2019s closed-won totals or these deal amounts. Because the numbers and deal breakdown are not supported by any evidence in the conversation/tool results, the agent is making up (hallucinating) the booked revenue and deal details. A correct response would cite the underlying deal records or a report output showing the closed-won amounts."
+        }
+      ]
+    },
+    "00d7ac77-904b-4122-8994-63ac7d28e9a0": {
+      "final_score": 0,
+      "confidence": 1.0,
+      "individual_scores": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "reasonings": [
+        "The task prompt was simply \u201cAvalara,\u201d which in this CRM-copilot context most likely required looking up the Avalara account/opportunity and returning a tactical overview or asking for clarification if multiple matches existed. Instead, the agent output a raw JSON blob listing unrelated accounts (e.g., Valley Bank, Deel) and did not provide any information about Avalara or clarify ambiguity. This indicates the agent did not complete the requested lookup/task.",
+        "The user\u2019s request was simply \u201cAvalara,\u201d which in this CRM-copilot context should have triggered a lookup/clarification about the Avalara account/opportunity (or multiple matches) using tools, followed by a concise summary and next steps. Instead, the agent returned a raw JSON blob listing unrelated accounts (e.g., Valley Bank, Deel) and did not reference Avalara at all. This indicates the agent did not complete the task and likely produced an incorrect/unprompted output.",
+        "The user\u2019s request was simply \u201cAvalara,\u201d which in this CRM-copilot context should have triggered a lookup/clarifying response about the Avalara account/contact/opportunity. Instead, the agent output a raw JSON blob of seemingly unrelated accounts (e.g., Valley Bank, Deel) with no explanation and no demonstrated linkage to \u201cAvalara.\u201d There\u2019s no evidence the agent correctly identified or returned Avalara-related CRM data, making the response effectively non-responsive and incomplete."
+      ],
+      "num_valid_iterations": 5,
+      "total_time_s": 38.736892223358154,
+      "primary_error_type": "incomplete_response",
+      "error_details": [
+        {
+          "error_type": "incomplete_response",
+          "error_citation": "FINAL OUTPUT:\n\"{\\\"results\\\":[{\\\"account_icp_id\\\":\\\"a98630b7-5f65-4336-b04e-bd72ba257911\\\",\\\"name\\\":\\\"Valley Bank\\\",...},{\\\"account_icp_id\\\":\\\"64f002e9-dacb-4d0a-aee3-9df4292ed04e\\\",\\\"name\\\":\\\"Deel\\\",...}...\"",
+          "error_explanation": "The user asked for \u201cAvalara,\u201d but the agent\u2019s output does not include Avalara and provides no CRM-grounded overview or clarification. A correct completion would have surfaced the Avalara record(s) (or asked which Avalara if multiple matches) and summarized relevant details (status, owner, open opps, next steps)."
+        },
+        {
+          "error_type": "incomplete_response",
+          "error_citation": "[002] USER: Avalara\n\nFINAL OUTPUT:\n\"{\\\"results\\\":[{\\\"account_icp_id\\\":\\\"a98630b7-5f65-4336-b04e-bd72ba257911\\\",\\\"name\\\":\\\"Valley Bank\\\"...},{\\\"account_icp_id\\\":\\\"64f002e9-dacb-4d0a-aee3-9df4292ed04e\\\",\\\"name\\\":\\\"Deel\\\"...},...]}\"",
+          "error_explanation": "The user asked about \u201cAvalara,\u201d but the agent did not return any Avalara-related account/opportunity/contact details, nor did it ask which Avalara entity the user meant. Instead it output a raw list of different companies (Valley Bank, Deel, etc.), which does not satisfy the request. A correct response would have performed a CRM search for \u201cAvalara,\u201d handled multiple matches if present, and then summarized the relevant record(s) with next steps."
+        },
+        {
+          "error_type": "incomplete_response",
+          "error_citation": "[FINAL OUTPUT]: \"{\\\"results\\\":[{\\\"account_icp_id\\\":\\\"a98630b7-5f65-4336-b04e-bd72ba257911\\\",\\\"name\\\":\\\"Valley Bank\\\"...},{\\\"account_icp_id\\\":\\\"64f002e9-dacb-4d0a-aee3-9df4292ed04e\\\",\\\"name\\\":\\\"Deel\\\"...}...\"",
+          "error_explanation": "The user asked for \u201cAvalara,\u201d but the agent did not return or summarize any Avalara-related record, nor ask which Avalara the user meant. Providing unrelated accounts (Valley Bank, Deel, etc.) fails to complete the lookup/tactical task. A correct response would identify the Avalara account/opportunity (or present 2\u20135 matching Avalara records) and summarize key CRM details and next steps, or request clarification if many matches exist."
+        }
+      ]
+    },
+    "0120ff49-a8e9-45c4-9c56-8f7b2d2ceb55": {
+      "final_score": 0,
+      "confidence": 1.0,
+      "individual_scores": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "reasonings": [
+        "The agent produced a follow-up email for the Rebtel meeting, but it included multiple unsupported specifics (e.g., \u201cyesterday,\u201d immigration needs, Deloitte, US moves) that are not evidenced in the provided meeting data/transcript snippet. Additionally, when the user requested a follow-up email for the Sheppard Mullin meeting, the agent did not draft the email at all; instead, the final output shows raw tool JSON, indicating an incomplete response for the second request.",
+        "The original task was to generate a follow-up email for a Rebtel meeting. The agent did produce an email draft, but it included multiple unsupported claims (e.g., \u201cyesterday,\u201d immigration needs, Deloitte, US relocation, and product timeline) that are not evidenced in the provided meeting data/transcript snippet. Additionally, when the user asked to do the same for the Sheppard Mullin meeting, the agent did not generate the requested follow-up email and instead output raw tool JSON, leaving the request incomplete.",
+        "The original task was to generate a follow-up email for the Rebtel meeting. The agent did produce an email draft, but it includes unsupported factual claims (e.g., \u201cyesterday,\u201d immigration needs, and Deloitte) that are not evidenced in the provided meeting metadata/transcript snippet. Additionally, when the user asked for a Sheppard Mullin follow-up email, the trajectory ends with tool output only and no drafted email, so the work is incomplete for the second request."
+      ],
+      "num_valid_iterations": 5,
+      "total_time_s": 39.44792103767395,
+      "primary_error_type": "incomplete_response",
+      "error_details": [
+        {
+          "error_type": "incomplete_response",
+          "error_citation": "[006] ASSISTANT: \"Thanks for taking the time to connect yesterday. I enjoyed learning more about Rebtel\u2019s ongoing immigration needs and your current process with Deloitte. It\u2019s clear you have a complex and evolving set of requirements as you move more employees to the US.\"",
+          "error_explanation": "The meeting record/transcript shown does not provide evidence for these claims (that the meeting was \u201cyesterday,\u201d that Rebtel discussed immigration needs, that Deloitte was involved, or that employees were being moved to the US). The agent should have either referenced only confirmed points from the transcript/notes or asked clarifying questions. Moreover, for the subsequent request to do the same for the Sheppard Mullin meeting, the agent did not produce an email draft at all (only tool JSON appears), so the task was not fully completed."
+        },
+        {
+          "error_type": "incomplete_response",
+          "error_citation": "[006] ASSISTANT: \"Thanks for taking the time to connect yesterday. I enjoyed learning more about Rebtel\u2019s ongoing immigration needs and your current process with Deloitte. It\u2019s clear you have a complex and evolving set of requirements as you move more employees to the US.\"\n\nFINAL OUTPUT: \"{\\\"results\\\":[{...}]...{\\\"id\\\":\\\"f81a5f72-b3f9-4c5e-8eea-3ad4389a4462\\\",...}\"",
+          "error_explanation": "The meeting record/transcript shown does not support claims about meeting occurring \u201cyesterday,\u201d Rebtel\u2019s immigration needs, a Deloitte process, or moving employees to the US\u2014these are hallucinated details. After the user requested a follow-up email for the Sheppard Mullin meeting, the agent failed to provide any email draft and instead output raw meeting JSON/tool data, which does not satisfy the task."
+        },
+        {
+          "error_type": "incomplete_response",
+          "error_citation": "[006] ASSISTANT: \"Thanks for taking the time to connect yesterday. I enjoyed learning more about Rebtel\u2019s ongoing immigration needs and your current process with Deloitte.\"",
+          "error_explanation": "The tool outputs shown ([004]-[005]) do not support these claims (no evidence of 'yesterday', 'immigration needs', or 'process with Deloitte' in the provided metadata; the visible transcript snippet is minimal). The agent invented context instead of grounding it. Moreover, for the later user request to 'Do for Sheppard Mullin meeting too' ([007]), the trajectory contains only tool output and no drafted follow-up email, so the task is not completed."
+        }
+      ]
+    },
+    "0136318a-ac31-462a-9696-626ac46b2531": {
+      "final_score": 0,
+      "confidence": 1.0,
+      "individual_scores": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "reasonings": [
+        "The task was \u201cToday\u2019s overview.\u201d The agent did produce an overview-style response, but it contains multiple specific metrics and claims (pipeline size/value, velocity, number of sequences, meetings, closed deals, overdue opp counts/values, and use of \u201cMonaco\u201d tooling) that are not supported anywhere in the provided conversation/trajectory. No tool outputs or source data are shown that would justify these figures, so the response relies on hallucinated data and therefore does not successfully complete the task reliably.",
+        "The agent did provide an overview, but it introduced specific quantitative pipeline metrics and operational details (e.g., pipeline size, velocity, number of sequences, meetings counts, overdue opp counts and aging) without any supporting data or tool outputs in the trajectory. Because the task context contains no underlying dataset and no tool responses are shown, these figures are unsupported and constitute hallucination. Additionally, the final output shown is for a different user request (\u201cTop accounts for starting sequences\u201d) rather than \u201cToday\u2019s overview,\u201d indicating the agent did not cleanly complete the stated task without error.",
+        "The agent produced an overview and later a list of \u201cTop 10 Accounts to Start Sequences,\u201d but the content includes many specific pipeline metrics (opps, $, velocity, meetings, closed deals) and named accounts/people/sequence IDs that are not supported by any provided tool output or data in the trajectory. With no underlying data shown, these specifics are hallucinated, so the task is not completed reliably."
+      ],
+      "num_valid_iterations": 5,
+      "total_time_s": 41.21363186836243,
+      "primary_error_type": "hallucination",
+      "error_details": [
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT: \"Pipeline: 37 opps\u202f=\u202f$225K, velocity\u202f0.29. 16 active sequences (avg\u202f0.23 performance). Upcoming meetings: 11 today, 17 this week.\"",
+          "error_explanation": "No prior message or tool output in the trajectory provides these pipeline counts/values, velocity, sequence performance, or meeting totals. The agent fabricated specific quantitative metrics instead of deriving them from supplied data. A correct response would either (a) reference actual provided pipeline/demand figures, or (b) explicitly ask for the necessary data before stating precise numbers."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT: \"Pipeline: 37 opps\u0000=\u0000$225K, velocity\u0000.29. 16 active sequences (avg\u0000.23 performance). Upcoming meetings: 11 today, 17 this week. Top priority: 5 overdue opps (each $25K) stuck in meeting\u0000booked/qualified/proposal stages for 15\u0000\u000032\u0000days.\"",
+          "error_explanation": "No tool output or prior user-provided data in the trajectory supports these exact figures (37 opps, $225K, velocity 0.29, 16 sequences, performance 0.23, 11/17 meetings, 5 overdue opps at $25K, 15\u201332 days). The agent appears to have invented these metrics rather than deriving them from provided inputs, which is a hallucination and makes the completion unsuccessful."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[003] ASSISTANT: \"Pipeline: 37 opps\u202f=\u202f$225K, velocity\u202f0.29. 16 active sequences (avg\u202f0.23 performance). Upcoming meetings: 11 today, 17 this week. Top priority: 5 overdue opps (each $25K) stuck in meeting\u2011booked/qualified/proposal stages for 15\u201132\u202fdays.\"",
+          "error_explanation": "No tool outputs or provided datasets in the trajectory contain these pipeline counts, dollar amounts, velocity, sequence performance, meeting counts, or stage-aging details. The agent asserted precise metrics without evidence, which is a hallucination. A correct response would either (a) cite the actual provided data/tool outputs, or (b) ask for the necessary pipeline/demand inputs before presenting quantified conclusions."
+        }
+      ]
+    },
+    "01517853-6493-4d91-a6cf-b3cc59e0a51a": {
+      "final_score": 1,
+      "confidence": 1.0,
+      "individual_scores": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "reasonings": [
+        "The task was to answer: \u201chow many meetings did we book last week?\u201d The agent used a reporting metric tool for the previous week and returned a numeric result grounded in the tool output (\u201cAccounts with Meetings Booked\u201d = 1). This directly answers the question without contradiction or unsupported claims.",
+        "The task was to answer \u201chow many meetings did we book last week?\u201d The agent used a reporting tool for the previous week and returned a grounded numeric result (\u201c1 account with meetings booked\u201d). This directly answers the question and is supported by the tool output showing \u201cAccounts with Meetings Booked\u201d = 1 for the specified date range. No contradiction or fabrication is present for that specific task.",
+        "The task was to answer \u201chow many meetings did we book last week?\u201d The agent used a reporting tool for the previous week and returned a grounded numeric result (\u201c1 account with meetings booked\u201d). This directly answers the question and is supported by the tool output showing \u201cAccounts with Meetings Booked\u201d = 1 for the specified previous-week date range. No unsupported claims were made in that specific answer."
+      ],
+      "num_valid_iterations": 5,
+      "total_time_s": 18.430006980895996,
+      "primary_error_type": null,
+      "error_details": []
+    },
+    "017f3b1e-bbe7-46e7-b98f-85c640c5731a": {
+      "final_score": 0,
+      "confidence": 0.8,
+      "individual_scores": [
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "reasonings": [
+        "The task was to determine whether the Backops AI account plans to use Monaco gifting. The agent answered directly that there is no evidence Backops AI plans to use Monaco gifting and reiterated after checking meetings/records that nothing mentions Monaco/gifting for Backops AI. No contradictions or unsupported claims are evident within the provided trajectory (though the agent did not show tool outputs, it consistently framed conclusions as \u201cno evidence\u201d rather than asserting specific unseen facts about Backops).",
+        "The original task was to determine whether the Backops AI account plans to use Monaco gifting. The agent answered that there is no evidence Backops AI plans to use Monaco gifting, but it did so without showing any tool outputs or citations from records. Later it claimed it checked meetings/emails and listed other accounts with Monaco-related meetings, again without any supporting tool output in the trajectory. Because the trajectory contains no evidence the agent actually accessed/validated the underlying records, these confident statements are unsupported and constitute hallucination relative to the provided conversation/tooling trace.",
+        "The task was to determine whether the Backops AI account plans to use Monaco gifting. The agent answered that there is no evidence Backops AI plans to use Monaco gifting, but it did so without showing any tool outputs or concrete record citations, and later made additional unsupported claims about which other accounts had Monaco-related meetings/emails. Because the trajectory contains no actual meeting/email/transcript outputs, these definitive statements are not verifiable and constitute hallucinated evidence."
+      ],
+      "num_valid_iterations": 5,
+      "total_time_s": 38.379597902297974,
+      "primary_error_type": "hallucination",
+      "error_details": [
+        {
+          "error_type": "hallucination",
+          "error_citation": "[007] ASSISTANT: \"No meetings or emails mention Backops AI ([Backops Ai](entity=account;entityId=0cb59f80-40f3-4632-b67b-b89e5f5923dc)) discussing their plans for Monaco. All Monaco-related meetings and emails are with other accounts (Surveill, Greptile, Overlayy, Hyperscout, The Swarm, Sphinx), not Backops AI.\"",
+          "error_explanation": "The trajectory shows no tool calls or retrieved meeting/email records to substantiate this claim. Without any displayed outputs from the meetings/emails tools (or excerpts/citations from transcripts/notes), the agent cannot reliably conclude what meetings/emails mention; naming specific other accounts is also unsupported. The correct behavior would be to query the relevant tools (meetings/transcripts/emails/notes for Backops AI) and cite the returned results (or explicitly state that tools were unavailable in the trace) before concluding whether Monaco gifting is planned."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[007] ASSISTANT: \"No meetings or emails mention Backops AI ([Backops Ai](entity=account;entityId=0cb59f80-40f3-4632-b67b-b89e5f5923dc)) discussing their plans for Monaco. All Monaco-related meetings and emails are with other accounts (Surveill, Greptile, Overlayy, Hyperscout, The Swarm, Sphinx), not Backops AI.\"",
+          "error_explanation": "The trajectory shows no tool calls or retrieved meeting/email records. Without any displayed outputs, the assistant cannot validly conclude that no meetings/emails mention Backops AI or that all Monaco-related meetings/emails belong to the listed other accounts. These are specific factual claims presented as evidence but are unsupported in the provided interaction, so they are hallucinated/ungrounded."
+        },
+        {
+          "error_type": "hallucination",
+          "error_citation": "[007] ASSISTANT: \"No meetings or emails mention Backops AI ([Backops Ai](entity=account;entityId=0cb59f80-40f3-4632-b67b-b89e5f5923dc)) discussing their plans for Monaco. All Monaco-related meetings and emails are with other accounts (Surveill, Greptile, Overlayy, Hyperscout, The Swarm, Sphinx), not Backops AI.\"",
+          "error_explanation": "The trajectory contains no tool calls or tool outputs showing meeting/email searches or results. Without documented tool evidence, the agent cannot reliably assert that no meetings/emails mention Backops AI or enumerate which other accounts had Monaco-related meetings. A correct response would include the actual tool queries/results (or citations to specific meeting/email records) demonstrating the absence of Monaco gifting discussion for Backops AI."
+        }
+      ]
+    }
+  }
+}
