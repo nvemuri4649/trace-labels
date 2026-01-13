@@ -259,6 +259,61 @@ def render_llm_prediction(prediction: dict):
     </div>
     """, unsafe_allow_html=True)
     
+    # Show error details if erroneous
+    if final_score == 0:
+        primary_error_type = prediction.get("primary_error_type")
+        error_details = prediction.get("error_details", [])
+        
+        if primary_error_type:
+            # Error type badge colors
+            error_type_colors = {
+                "hallucination": ("#f59e0b", "🎭"),
+                "underspecified_tool_semantics": ("#8b5cf6", "🔧"),
+                "incorrect_tool_output": ("#ef4444", "⚠️"),
+                "incomplete_response": ("#3b82f6", "📝"),
+                "refusal": ("#6b7280", "🚫"),
+                "other": ("#94a3b8", "❓"),
+            }
+            color, emoji = error_type_colors.get(primary_error_type, ("#94a3b8", "❓"))
+            display_type = primary_error_type.replace("_", " ").title()
+            
+            st.markdown(f"""
+            <div style="background: rgba(239, 68, 68, 0.1); border-radius: 8px; padding: 0.75rem; margin-top: 0.75rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.1rem;">{emoji}</span>
+                    <span style="background: {color}; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">
+                        {display_type}
+                    </span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Show error citations and explanations
+        if error_details:
+            with st.expander("🔍 Error Details (LLM Analysis)", expanded=True):
+                for i, detail in enumerate(error_details):
+                    error_type = detail.get("error_type", "unknown")
+                    citation = detail.get("error_citation", "")
+                    explanation = detail.get("error_explanation", "")
+                    
+                    if citation or explanation:
+                        st.markdown(f"**Analysis {i+1}** ({error_type.replace('_', ' ')})")
+                        
+                        if citation:
+                            st.markdown("**📌 Citation from trajectory:**")
+                            st.markdown(f"""
+                            <div style="background: #1e293b; border-left: 3px solid #ef4444; padding: 0.75rem; margin: 0.5rem 0; border-radius: 4px; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; overflow-x: auto;">
+{citation}
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        if explanation:
+                            st.markdown("**💡 Why this is wrong:**")
+                            st.markdown(explanation)
+                        
+                        if i < len(error_details) - 1:
+                            st.markdown("---")
+    
     # Show reasoning if available
     reasonings = prediction.get("reasonings", [])
     if reasonings:

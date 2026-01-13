@@ -72,8 +72,29 @@ JUDGE_JSON_SCHEMA: Dict[str, Any] = {
             "items": {"type": "string"},
             "description": "List of errors found (possibly empty).",
         },
+        "error_type": {
+            "type": "string",
+            "enum": [
+                "none",
+                "hallucination",
+                "underspecified_tool_semantics",
+                "incorrect_tool_output",
+                "incomplete_response",
+                "refusal",
+                "other"
+            ],
+            "description": "Primary error type if score is 0. Use 'none' if score is 1.",
+        },
+        "error_citation": {
+            "type": "string",
+            "description": "If erroneous, quote the EXACT text from the trajectory that demonstrates the error. Include message number [XXX] for reference. Empty string if no error.",
+        },
+        "error_explanation": {
+            "type": "string",
+            "description": "If erroneous, explain WHY the cited text is wrong, including what the correct information should be if applicable. Empty string if no error.",
+        },
     },
-    "required": ["reasoning", "score", "task_analysis", "completion_evidence", "errors_found"],
+    "required": ["reasoning", "score", "task_analysis", "completion_evidence", "errors_found", "error_type", "error_citation", "error_explanation"],
 }
 
 JUDGE_RESPONSE_FORMAT: Dict[str, Any] = {
@@ -94,6 +115,10 @@ class IterationResult:
     raw_response: str = ""
     error: Optional[str] = None
     time_s: float = 0.0
+    # Error details (populated when score=0)
+    error_type: str = "none"
+    error_citation: str = ""
+    error_explanation: str = ""
 
 
 @dataclass
@@ -291,12 +316,52 @@ The agent was given this task: {task}
 ## Agent Trajectory
 {trajectory_text}
 
+## Error Modes to Check For
+
+When evaluating, look for these specific error types:
+
+### 1. HALLUCINATION
+The agent claims something that is NOT supported by the tool outputs or conversation.
+- Agent states facts not present in any tool response
+- Agent confidently reports information that contradicts tool outputs
+- Agent makes up dates, names, numbers, or details not in the data
+
+### 2. UNDERSPECIFIED_TOOL_SEMANTICS  
+The agent misuses tools due to unclear tool behavior/parameters.
+- Agent assumes ordering (e.g., "recent" vs "oldest") not guaranteed by tool
+- Agent expects tool behavior that isn't specified
+- Tool parameters are misunderstood or misused
+
+### 3. INCORRECT_TOOL_OUTPUT
+The tool itself returned incorrect or inconsistent data.
+- Tool response contains factual errors
+- Tool response is internally inconsistent
+- Tool swapped entities or confused data
+
+### 4. INCOMPLETE_RESPONSE
+The agent started work but failed to provide a complete answer.
+- Tool calls were made but no final answer given
+- Agent's response trails off or is cut short
+- Key parts of the answer are missing
+
+### 5. REFUSAL
+The agent declined to complete the task.
+- Agent says it cannot do something it could do
+- Agent refuses without valid reason
+- Agent gives up prematurely
+
+### 6. OTHER
+Any other error not fitting the above categories.
+
 ## Evaluation Instructions
 
 1. Read through the trajectory carefully
 2. Check if the agent completed all required actions
-3. Look for any errors or failures
-4. Make a final judgment
+3. Look for any of the error modes listed above
+4. If score=0, you MUST provide:
+   - error_type: One of the categories above
+   - error_citation: Quote the EXACT text from the trajectory (with message number [XXX])
+   - error_explanation: Explain why this is wrong and what should have been correct
 
 ## Required JSON Response
 
@@ -308,15 +373,21 @@ Respond with a JSON object (reasoning FIRST, score AFTER). Put the reasoning BEF
   "score": 0,
   "task_analysis": "What the agent was supposed to do",
   "completion_evidence": "Evidence of completion or failure", 
-  "errors_found": ["list of errors, or empty"]
+  "errors_found": ["list of errors, or empty"],
+  "error_type": "hallucination|underspecified_tool_semantics|incorrect_tool_output|incomplete_response|refusal|other|none",
+  "error_citation": "[003] ASSISTANT: The meeting was on December 18... (quote the problematic text with message number)",
+  "error_explanation": "The tool output at [002] shows the meeting was on January 10, not December 18. The agent hallucinated the date."
 }}
 ```
 
 CRITICAL:
 - reasoning MUST come before score
 - score MUST be 0 or 1 (integer)
-- score = 1 ONLY if task was clearly completed successfully
-- score = 0 if incomplete, had major errors, or failed
+- score = 1 ONLY if task was clearly completed successfully with no errors
+- score = 0 if incomplete, had errors, hallucinations, or failed
+- If score = 0, error_type MUST NOT be "none"
+- If score = 0, error_citation MUST contain exact quoted text with message number
+- If score = 1, error_type = "none" and error_citation/error_explanation are empty strings
 """
 
 
@@ -377,12 +448,16 @@ async def evaluate_single_iteration(
                 result.raw_response = response_text
                 result.time_s = time.time() - start
                 
-                # Parse score
+                # Parse score and error details
                 try:
                     obj = json.loads(response_text) if response_text else None
                     if isinstance(obj, dict) and "score" in obj:
                         result.score = int(obj.get("score"))
                         result.reasoning = obj.get("reasoning", "")
+                        # Extract error details
+                        result.error_type = obj.get("error_type", "none")
+                        result.error_citation = obj.get("error_citation", "")
+                        result.error_explanation = obj.get("error_explanation", "")
                 except Exception:
                     result.score = extract_score_from_response(response_text)
                 
@@ -493,6 +568,23 @@ def save_predictions(results: List[TrajectoryResult], output_path: Path):
         scores = [it.score for it in result.iterations if it.score is not None]
         reasonings = [it.reasoning for it in result.iterations if it.reasoning]
         
+        # Collect error details from iterations that scored 0
+        error_details = []
+        for it in result.iterations:
+            if it.score == 0 and it.error_type and it.error_type != "none":
+                error_details.append({
+                    "error_type": it.error_type,
+                    "error_citation": it.error_citation,
+                    "error_explanation": it.error_explanation,
+                })
+        
+        # Get the most common error type if score is 0
+        primary_error = None
+        if result.final_score == 0 and error_details:
+            error_types = [e["error_type"] for e in error_details if e["error_type"]]
+            if error_types:
+                primary_error = Counter(error_types).most_common(1)[0][0]
+        
         predictions[result.trajectory_id] = {
             "final_score": result.final_score,
             "confidence": result.confidence,
@@ -500,6 +592,9 @@ def save_predictions(results: List[TrajectoryResult], output_path: Path):
             "reasonings": reasonings[:3],  # Keep first 3 reasonings
             "num_valid_iterations": len(scores),
             "total_time_s": result.total_time_s,
+            # Error details for erroneous trajectories
+            "primary_error_type": primary_error,
+            "error_details": error_details[:3] if error_details else [],  # Keep first 3 error details
         }
     
     output = {
