@@ -113,6 +113,26 @@ class LocalDataStore:
         self._trajectories_cache = trajectories
         return trajectories
     
+    def get_assigned_trajectories(self) -> List[Dict[str, Any]]:
+        """Get trajectories assigned to this user.
+        
+        Trajectories are evenly distributed among ALLOWED_LABELERS by index.
+        Each labeler gets every Nth trajectory based on their position in the list.
+        """
+        all_trajectories = self.get_all_trajectories()
+        
+        # Get user index in allowed labelers
+        labelers = [l.lower() for l in config.ALLOWED_LABELERS]
+        if self.username not in labelers:
+            return []  # User not in allowed list
+        
+        user_index = labelers.index(self.username)
+        num_labelers = len(labelers)
+        
+        # Assign trajectories by index modulo
+        assigned = [t for i, t in enumerate(all_trajectories) if i % num_labelers == user_index]
+        return assigned
+    
     def get_llm_predictions(self) -> Dict[str, Dict[str, Any]]:
         """Load LLM predictions from the predictions file."""
         if self._llm_predictions_cache is not None:
@@ -189,23 +209,27 @@ class LocalDataStore:
         return [t for t in all_trajectories if t.get("id") not in labeled_ids]
     
     def get_stats(self) -> Dict[str, Any]:
-        """Get labeling statistics."""
-        all_trajectories = self.get_all_trajectories()
+        """Get labeling statistics for this user's assigned trajectories."""
+        assigned_trajectories = self.get_assigned_trajectories()
         labels = self.get_all_labels()
         
+        # Only count labels for assigned trajectories
+        assigned_ids = {t.get("id") for t in assigned_trajectories}
+        relevant_labels = [l for l in labels if l.get("trajectory_id") in assigned_ids]
+        
         label_counts = {0: 0, 1: 0}
-        for label in labels:
+        for label in relevant_labels:
             lval = label.get("label")
             if lval in label_counts:
                 label_counts[lval] += 1
         
         return {
-            "total_trajectories": len(all_trajectories),
-            "labeled": len(labels),
-            "remaining": len(all_trajectories) - len(labels),
+            "total_trajectories": len(assigned_trajectories),
+            "labeled": len(relevant_labels),
+            "remaining": len(assigned_trajectories) - len(relevant_labels),
             "erroneous_count": label_counts[0],
             "successful_count": label_counts[1],
-            "completion_rate": len(labels) / len(all_trajectories) if all_trajectories else 0,
+            "completion_rate": len(relevant_labels) / len(assigned_trajectories) if assigned_trajectories else 0,
         }
 
 

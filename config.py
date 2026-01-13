@@ -5,6 +5,10 @@ Simple local-first setup: each labeler runs the app locally and
 saves their labels to a personal file that can be aggregated later.
 """
 
+# Allowed labelers - ONLY these users can log in
+# Trajectories are evenly distributed among them
+ALLOWED_LABELERS = ["andrew", "nikhil", "brian", "rain", "abi"]
+
 # Binary labels only: 0 = erroneous, 1 = successful
 LABELS = {
     0: "Erroneous",

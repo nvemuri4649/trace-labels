@@ -185,23 +185,29 @@ def render_login():
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("### Enter your name to start labeling")
-        username = st.text_input(
-            "Username",
-            placeholder="e.g., brian, nikhil, andrew",
+        st.markdown("### Select your name to start labeling")
+        
+        # Only allow specific labelers
+        allowed = config.ALLOWED_LABELERS
+        username = st.selectbox(
+            "Select your name",
+            options=[""] + allowed,
+            format_func=lambda x: "Choose your name..." if x == "" else x.capitalize(),
             label_visibility="collapsed"
         )
         
         if st.button("Start Labeling", use_container_width=True, type="primary"):
-            if username and username.strip():
-                st.session_state.username = username.strip().lower()
+            if username and username in allowed:
+                st.session_state.username = username.lower()
+                st.session_state.current_trajectory_idx = 0  # Reset to first trajectory
                 st.rerun()
             else:
-                st.error("Please enter a username")
+                st.error("Please select your name from the list")
         
-        st.markdown("""
+        st.markdown(f"""
         <div style="margin-top: 2rem; color: #64748b; font-size: 0.9rem;">
-            <p>Your labels will be saved to: <code>data/labels_{username}.json</code></p>
+            <p><b>Allowed labelers:</b> {', '.join(allowed)}</p>
+            <p>Each person has a fixed set of trajectories assigned to them.</p>
             <p>Binary labels: <b>0</b> = Erroneous, <b>1</b> = Successful</p>
         </div>
         """, unsafe_allow_html=True)
@@ -387,24 +393,32 @@ def render_trajectory(trajectory: dict):
 def render_labeling_interface():
     """Render main labeling interface."""
     username = st.session_state.username
+    
+    # Verify user is allowed
+    if username not in [l.lower() for l in config.ALLOWED_LABELERS]:
+        st.error(f"User '{username}' is not in the allowed labelers list.")
+        st.session_state.username = None
+        st.rerun()
+        return
+    
     store = get_data_store(username)
     
-    # Get trajectories and labels
-    all_trajectories = store.get_all_trajectories()
+    # Get ASSIGNED trajectories for this user (not all trajectories)
+    assigned_trajectories = store.get_assigned_trajectories()
     labels = store.get_all_labels()
     labeled_ids = {l.get("trajectory_id") for l in labels}
     
-    if not all_trajectories:
-        st.error("No trajectories found. Make sure data/monaco_traces.jsonl exists.")
+    if not assigned_trajectories:
+        st.error("No trajectories assigned. Make sure data/monaco_traces.jsonl exists.")
         return
     
     # Sidebar
     with st.sidebar:
-        st.markdown(f"### 👤 {username}")
+        st.markdown(f"### 👤 {username.capitalize()}")
         
         stats = store.get_stats()
         st.markdown(f"""
-        **Progress:** {stats['labeled']} / {stats['total_trajectories']} labeled  
+        **Your Progress:** {stats['labeled']} / {stats['total_trajectories']} labeled  
         **Remaining:** {stats['remaining']}  
         **Successful:** {stats['successful_count']}  
         **Erroneous:** {stats['erroneous_count']}
@@ -414,23 +428,25 @@ def render_labeling_interface():
         
         st.markdown("---")
         
-        # Show all toggle
+        # Show all toggle (to review/edit already labeled)
         st.session_state.show_all = st.checkbox(
-            "Show already labeled",
-            value=st.session_state.show_all
+            "Include already labeled",
+            value=st.session_state.show_all,
+            help="Check to review or edit your existing labels"
         )
         
         st.markdown("---")
         
-        # Navigation
+        # Filter trajectories based on show_all toggle
         if st.session_state.show_all:
-            display_trajectories = all_trajectories
+            display_trajectories = assigned_trajectories
         else:
-            display_trajectories = [t for t in all_trajectories if t["id"] not in labeled_ids]
+            display_trajectories = [t for t in assigned_trajectories if t["id"] not in labeled_ids]
         
         if not display_trajectories:
-            st.success("🎉 All trajectories labeled!")
-            if st.button("Show All Trajectories"):
+            st.success("🎉 You've labeled all your assigned trajectories!")
+            st.balloons()
+            if st.button("Review Your Labels"):
                 st.session_state.show_all = True
                 st.rerun()
             return
@@ -488,14 +504,27 @@ def render_labeling_interface():
     # Header with trajectory ID
     st.markdown(f"## Trajectory: `{trajectory_id}`")
     
-    # Existing label banner
+    # Existing label banner - prominent indicator for already-labeled trajectories
     if existing_label:
         label_val = existing_label.get("label")
         label_name = config.LABELS.get(label_val, "Unknown")
+        labeled_at = existing_label.get("labeled_at", "")[:16].replace("T", " ")
+        emoji = "❌" if label_val == 0 else "✅"
+        bg_color = "rgba(239, 68, 68, 0.2)" if label_val == 0 else "rgba(34, 197, 94, 0.2)"
+        border_color = "#ef4444" if label_val == 0 else "#22c55e"
+        
         st.markdown(f"""
-        <div style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem;">
-            <b>✓ Currently labeled:</b> [{label_val}] {label_name}
-            <span style="color: #94a3b8; margin-left: 1rem;">(Click a button below to change)</span>
+        <div style="background: {bg_color}; border: 2px solid {border_color}; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span style="font-size: 1.2rem;">{emoji}</span>
+                    <b>ALREADY LABELED:</b> [{label_val}] {label_name}
+                </div>
+                <span style="color: #94a3b8; font-size: 0.85rem;">Labeled: {labeled_at}</span>
+            </div>
+            <div style="color: #94a3b8; font-size: 0.9rem; margin-top: 0.5rem;">
+                Click a label button to change this label
+            </div>
         </div>
         """, unsafe_allow_html=True)
     
