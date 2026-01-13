@@ -6,12 +6,55 @@ Each labeler gets their own labels file that can be aggregated later.
 """
 
 import json
+import re
 import time
 import streamlit as st
 from pathlib import Path
 
 import config
 from data_store import get_data_store
+
+
+def parse_concatenated_json(text: str) -> list:
+    """Parse concatenated JSON objects (e.g., {...}{...}) into a list.
+    
+    Also handles double-encoded JSON strings.
+    """
+    if not text or not text.strip():
+        return []
+    
+    text = text.strip()
+    
+    # Check if the entire thing is a JSON-encoded string (double-encoded)
+    if text.startswith('"') and text.endswith('"'):
+        try:
+            # Decode the outer string
+            text = json.loads(text)
+            if isinstance(text, str):
+                text = text.strip()
+        except json.JSONDecodeError:
+            pass
+    
+    results = []
+    decoder = json.JSONDecoder()
+    idx = 0
+    
+    while idx < len(text):
+        # Skip whitespace
+        while idx < len(text) and text[idx].isspace():
+            idx += 1
+        if idx >= len(text):
+            break
+        
+        try:
+            obj, end_idx = decoder.raw_decode(text, idx)
+            results.append(obj)
+            idx += end_idx
+        except json.JSONDecodeError:
+            # If we can't parse more JSON, break
+            break
+    
+    return results
 
 # Page configuration
 st.set_page_config(
@@ -279,12 +322,66 @@ def render_trajectory(trajectory: dict):
     if output:
         st.markdown("---")
         st.markdown("### Final Output")
-        with st.expander("View Output", expanded=True):
-            try:
-                parsed = json.loads(output)
-                st.json(parsed)
-            except:
-                st.code(output[:3000] if len(output) > 3000 else output)
+        
+        # Try to parse concatenated JSON objects
+        parsed_objects = parse_concatenated_json(output)
+        
+        if parsed_objects:
+            st.markdown(f"*Parsed {len(parsed_objects)} JSON object(s)*")
+            
+            # Display each JSON object in a nice format
+            for i, obj in enumerate(parsed_objects):
+                if len(parsed_objects) > 1:
+                    st.markdown(f"**Response {i+1}:**")
+                
+                # Check if this is a results-style response
+                if isinstance(obj, dict) and "results" in obj:
+                    results = obj.get("results", [])
+                    if results:
+                        st.markdown(f"*Found {len(results)} result(s):*")
+                        for j, result in enumerate(results[:5]):  # Limit to 5 results
+                            name = result.get("name", result.get("account_name", "Unknown"))
+                            stage = result.get("stage", "")
+                            summary = str(result.get("summary", ""))[:200]
+                            st.markdown(f"""
+                            <div style="background: #1e293b; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; border-left: 3px solid #10b981;">
+                                <b>{name}</b> <span style="color: #94a3b8;">({stage})</span><br>
+                                <span style="font-size: 0.9rem; color: #cbd5e1;">{summary}...</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        if len(results) > 5:
+                            st.caption(f"...and {len(results) - 5} more results")
+                    
+                    # Show pagination info if present
+                    if "pagination_meta" in obj:
+                        meta = obj["pagination_meta"]
+                        st.caption(f"Page {meta.get('current_page', 1)} of {meta.get('total_pages', 1)} | {meta.get('total_count', 0)} total")
+                
+                # Check if this is an events-style response
+                elif isinstance(obj, dict) and "events" in obj:
+                    events = obj.get("events", [])
+                    st.markdown(f"*{len(events)} event(s) in history*")
+                    with st.expander("View Events", expanded=False):
+                        for event in events[:3]:
+                            intent = event.get("intent", "unknown")
+                            timestamp = str(event.get("event_timestamp", ""))[:10]
+                            st.markdown(f"- **{intent}** ({timestamp})")
+                        if len(events) > 3:
+                            st.caption(f"...and {len(events) - 3} more events")
+                
+                # Generic JSON display - use code block instead of st.json to avoid errors
+                else:
+                    with st.expander(f"View JSON {'#' + str(i+1) if len(parsed_objects) > 1 else ''}", expanded=len(parsed_objects) == 1):
+                        try:
+                            formatted = json.dumps(obj, indent=2, ensure_ascii=False)
+                            st.code(formatted[:10000], language="json")
+                        except Exception as e:
+                            st.error(f"Error formatting JSON: {e}")
+                            st.code(str(obj)[:5000])
+        else:
+            # Fallback: show raw output
+            with st.expander("View Raw Output", expanded=True):
+                st.code(output[:5000] if len(output) > 5000 else output)
 
 
 def render_labeling_interface():
